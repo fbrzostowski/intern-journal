@@ -1,5 +1,5 @@
 const CONFIG = {
-  DEMO: true,
+  DEMO: false,
 
   SHEETS_ID: '1FS498thr4ler0ertFzkuYaGW9bjof-RPaDUEpEskckk',
 
