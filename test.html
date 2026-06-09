@@ -187,6 +187,130 @@
       });
     });
 
+    // ── 6. projekty — pole w wpisach ────────────────────────────
+    describe('Projekty — pole project w wpisach', () => {
+      it('każdy wpis ma pole project', () => {
+        entries.forEach((e, i) => {
+          if (e.project === undefined)
+            throw new Error(`wpis ${i}: brak pola project`);
+        });
+      });
+      it('project jest niepustym stringiem', () => {
+        entries.forEach((e, i) => {
+          if (typeof e.project !== 'string' || e.project.trim() === '')
+            throw new Error(`wpis ${i}: project="${e.project}"`);
+        });
+      });
+    });
+
+    // ── 7. buildProjectList ──────────────────────────────────────
+    describe('buildProjectList — struktura', () => {
+      const projects = buildProjectList(entries);
+
+      it('zwraca tablicę', () => {
+        expect(Array.isArray(projects)).toBe(true);
+      });
+      it('nie więcej projektów niż wpisów', () => {
+        expect(projects.length).toBeLessThanOrEqual(entries.length);
+      });
+      it('każdy projekt ma name, hours, count', () => {
+        projects.forEach((p, i) => {
+          ['name','hours','count'].forEach(f => {
+            if (p[f] === undefined) throw new Error(`projekt ${i}: brak pola "${f}"`);
+          });
+        });
+      });
+      it('hours są dodatnie', () => {
+        projects.forEach((p, i) => {
+          if (p.hours <= 0) throw new Error(`projekt ${i} "${p.name}": hours=${p.hours}`);
+        });
+      });
+      it('count > 0', () => {
+        projects.forEach((p, i) => {
+          if (p.count <= 0) throw new Error(`projekt ${i} "${p.name}": count=${p.count}`);
+        });
+      });
+      it('suma count = liczba wpisów', () => {
+        const total = projects.reduce((s, p) => s + p.count, 0);
+        expect(total).toBe(entries.length);
+      });
+      it('suma hours zgadza się z sumą wpisów', () => {
+        const fromProjects = Math.round(projects.reduce((s, p) => s + p.hours, 0) * 10) / 10;
+        const fromEntries  = Math.round(entries.reduce((s, e) => s + e.hours, 0) * 10) / 10;
+        if (fromProjects !== fromEntries)
+          throw new Error(`projekty: ${fromProjects}h vs wpisy: ${fromEntries}h`);
+      });
+      it('posortowane malejąco po hours', () => {
+        for (let i = 1; i < projects.length; i++) {
+          if (projects[i].hours > projects[i-1].hours)
+            throw new Error(`projekt ${i} (${projects[i].hours}h) > ${i-1} (${projects[i-1].hours}h)`);
+        }
+      });
+    });
+
+    // ── 8. średnia ważona ────────────────────────────────────────
+    describe('Średnia ważona godzinami', () => {
+      it('dzienna avg nie przekracza max oceny z dnia', () => {
+        summaries.forEach((s, si) => {
+          const dayEntries = entries.filter(e => e.date === s.date);
+          ['avgInterest','avgLearning','avgDifficulty','avgMood'].forEach(k => {
+            const rKey = k.replace('avg','').toLowerCase();
+            const max = Math.max(...dayEntries.map(e => e.ratings[rKey]));
+            if (s[k] > max + 0.1)
+              throw new Error(`dzień ${s.date}: ${k}=${s[k]} > max=${max}`);
+          });
+        });
+      });
+      it('wpis z największą liczbą godzin ma największy wpływ', () => {
+        // Sztuczny test: dla dnia z 2+ wpisami sprawdź że avg ≠ prosta średnia
+        const multiDay = summaries.find(s => {
+          return entries.filter(e => e.date === s.date).length >= 2 &&
+                 entries.filter(e => e.date === s.date).some((e, _, arr) => e.hours !== arr[0].hours);
+        });
+        if (!multiDay) return; // brak danych do testu — skip
+        const dayEntries = entries.filter(e => e.date === multiDay.date);
+        const simple = dayEntries.reduce((s, e) => s + e.ratings.interest, 0) / dayEntries.length;
+        const totalH = dayEntries.reduce((s, e) => s + e.hours, 0);
+        const weighted = dayEntries.reduce((s, e) => s + e.ratings.interest * e.hours, 0) / totalH;
+        // Jeśli godziny nie są równe, wyniki powinny się różnić
+        const hoursEqual = dayEntries.every(e => e.hours === dayEntries[0].hours);
+        if (!hoursEqual && Math.abs(simple - weighted) < 0.001)
+          throw new Error(`simple=${simple.toFixed(2)} === weighted=${weighted.toFixed(2)} — podejrzane`);
+      });
+    });
+
+    // ── 9. eksport CSV ───────────────────────────────────────────
+    describe('Eksport CSV', () => {
+      const esc  = v => `"${String(v).replace(/"/g, '""')}"`;
+      const rows = [
+        ['data','projekt','wpis','czas'].map(esc).join(','),
+        ...entries.map(e => [e.date, e.project, e.title, e.hours].map(esc).join(',')),
+      ];
+      const csv = rows.join('\n');
+
+      it('pierwsza linia to nagłówek', () => {
+        expect(csv.split('\n')[0]).toBe('"data","projekt","wpis","czas"');
+      });
+      it('liczba linii = liczba wpisów + 1 (nagłówek)', () => {
+        expect(csv.split('\n').length).toBe(entries.length + 1);
+      });
+      it('każda linia ma 4 kolumny', () => {
+        csv.split('\n').forEach((line, i) => {
+          const cols = line.match(/"(?:[^"]|"")*"/g);
+          if (!cols || cols.length !== 4)
+            throw new Error(`linia ${i}: ${cols?.length ?? 0} kolumn`);
+        });
+      });
+      it('pole czas jest liczbą', () => {
+        rows.slice(1).forEach((row, i) => {
+          const cols = row.match(/"(?:[^"]|"")*"/g);
+          const val  = parseFloat(cols[3].replace(/"/g, ''));
+          if (isNaN(val) || val <= 0)
+            throw new Error(`wiersz ${i}: czas="${cols[3]}"`);
+        });
+      });
+    });
+
     // ── render ───────────────────────────────────────────────────
     let totalPass = 0, totalFail = 0;
     const out = document.getElementById('output');

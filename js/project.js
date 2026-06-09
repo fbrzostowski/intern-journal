@@ -39,7 +39,7 @@ async function initProjectView() {
           <span class="entry-title">${entry.title}</span>
           <span class="entry-hours">${entry.hours}h</span>
         </div>
-        <div class="entry-date">${dateStr}</div>
+        <a href="day.html?date=${entry.date}" class="entry-date-link">${dateStr}</a>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
       </div>
       <div class="entry-canvas-wrap">
