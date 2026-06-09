@@ -45,6 +45,7 @@ async function initDayView() {
           <span class="entry-title">${entry.title}</span>
           <span class="entry-hours">${entry.hours}h</span>
         </div>
+        <a href="project.html?name=${encodeURIComponent(entry.project)}" class="entry-project-link">${entry.project}</a>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
       </div>
       <div class="entry-canvas-wrap">

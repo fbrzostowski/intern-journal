@@ -235,6 +235,34 @@ header h1 { font-size: 18px; font-weight: 600; }
   white-space: nowrap;
 }
 
+.entry-date-link {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0F6E56;
+  background: #edfaf5;
+  border: 1px solid #a7dfc9;
+  border-radius: 4px;
+  padding: 1px 7px;
+  text-decoration: none;
+  margin-bottom: 6px;
+}
+.entry-date-link:hover { background: #0F6E56; color: white; border-color: #0F6E56; }
+
+.entry-project-link {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #534AB7;
+  background: #f0eeff;
+  border: 1px solid #c4b8f5;
+  border-radius: 4px;
+  padding: 1px 7px;
+  text-decoration: none;
+  margin-bottom: 6px;
+}
+.entry-project-link:hover { background: #534AB7; color: white; border-color: #534AB7; }
+
 .entry-date {
   font-size: 12px;
   color: #888;
