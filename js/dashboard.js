@@ -21,6 +21,26 @@ async function initDashboard() {
   const dateLabels = summaries.map(s => s.dateLabel);
   const hoursArr   = summaries.map(s => s.totalHours);
 
+  // Statystyki godzin
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // poniedziałek
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const fmt = h => `${Math.round(h * 10) / 10}h`;
+  const totalH = entries.reduce((s, e) => s + e.hours, 0);
+  const monthH = entries.filter(e => {
+    const d = e.timestamp;
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).reduce((s, e) => s + e.hours, 0);
+  const weekH = entries.filter(e => e.timestamp >= startOfWeek)
+    .reduce((s, e) => s + e.hours, 0);
+
+  document.getElementById('stat-total').textContent = fmt(totalH);
+  document.getElementById('stat-month').textContent = fmt(monthH);
+  document.getElementById('stat-week').textContent  = fmt(weekH);
+  document.getElementById('stats-bar').style.display = '';
+
   // Legenda HTML — poza canvas, nie scrolluje się
   document.getElementById('chart-legend').innerHTML = CHART_DEFS.map(def =>
     `<span class="legend-item">

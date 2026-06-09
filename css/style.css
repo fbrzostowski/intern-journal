@@ -77,6 +77,42 @@ header h1 { font-size: 18px; font-weight: 600; }
   border-bottom: 1px solid #e5e7eb;
 }
 
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 24px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #534AB7;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 36px;
+  background: #e5e7eb;
+}
+
 .chart-legend {
   display: flex;
   gap: 20px;

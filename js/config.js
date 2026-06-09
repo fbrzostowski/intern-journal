@@ -1,5 +1,5 @@
 const CONFIG = {
-  DEMO: true,  // zmień na false żeby używać prawdziwych danych z Google Sheets
+  DEMO: false,
 
   SHEETS_ID: '1FS498thr4ler0ertFzkuYaGW9bjof-RPaDUEpEskckk',
 
