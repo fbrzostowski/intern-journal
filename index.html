@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dzienniczek stażysty</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Dzienniczek stażysty</h1>
+  </header>
+
+  <p id="status" class="status"></p>
+
+  <div class="chart-single-wrap">
+    <div id="chart-legend" class="chart-legend"></div>
+    <div class="chart-scroll" id="chart-scroll">
+      <canvas id="chart-main"></canvas>
+      <div id="chart-ticks" class="chart-ticks"></div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/sheets.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
