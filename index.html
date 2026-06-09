@@ -10,6 +10,7 @@
 <body>
   <header>
     <h1>Dzienniczek stażysty</h1>
+    <button id="btn-export" class="btn-export" style="display:none">Eksportuj CSV</button>
   </header>
 
   <p id="status" class="status"></p>
@@ -37,6 +38,11 @@
       <canvas id="chart-main"></canvas>
       <div id="chart-ticks" class="chart-ticks"></div>
     </div>
+  </div>
+
+  <div id="projects-section" style="display:none">
+    <h2 class="section-title">Projekty</h2>
+    <div id="projects-list" class="projects-list"></div>
   </div>
 
   <script src="js/config.js"></script>
