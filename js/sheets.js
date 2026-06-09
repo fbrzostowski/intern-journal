@@ -145,7 +145,7 @@ function parseResponse(response) {
         dateLabel:   formatDateLabel(timestamp),
         title:       get(CONFIG.COLUMNS.title)       ?? '',
         description: get(CONFIG.COLUMNS.description) ?? '',
-        hours:       parseFloat(get(CONFIG.COLUMNS.hours))   || 0,
+        hours:       parseFloat(String(get(CONFIG.COLUMNS.hours) ?? '').replace(',', '.')) || 0,
         ratings: {
           interest:   parseInt(get(CONFIG.COLUMNS.interest))   || 0,
           learning:   parseInt(get(CONFIG.COLUMNS.learning))   || 0,

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Testy — Dzienniczek stażysty</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; margin: 0; padding: 24px; color: #1a1a1a; }
+    h1   { font-size: 18px; margin-bottom: 20px; }
+    h2   { font-size: 14px; font-weight: 600; color: #555; margin: 24px 0 8px; text-transform: uppercase; letter-spacing: .05em; }
+    .suite   { background: white; border-radius: 10px; border: 1px solid #e5e7eb; overflow: hidden; margin-bottom: 16px; }
+    .case    { display: flex; align-items: flex-start; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+    .case:last-child { border-bottom: none; }
+    .badge   { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; margin-top: 1px; }
+    .pass    { background: #d1fae5; color: #065f46; }
+    .fail    { background: #fee2e2; color: #991b1b; }
+    .skip    { background: #f3f4f6; color: #6b7280; }
+    .detail  { color: #6b7280; font-size: 12px; margin-top: 2px; }
+    #summary { font-size: 14px; padding: 12px 16px; border-radius: 8px; margin-bottom: 24px; font-weight: 600; }
+    .sum-ok  { background: #d1fae5; color: #065f46; }
+    .sum-fail{ background: #fee2e2; color: #991b1b; }
+    #loading { color: #888; font-size: 14px; padding: 32px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Testy automatyczne</h1>
+  <div id="loading">Ładowanie danych…</div>
+  <div id="summary" style="display:none"></div>
+  <div id="output"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/sheets.js"></script>
+  <script>
+  // ── mini framework ──────────────────────────────────────────────
+  const suites = [];
+  let currentSuite;
+
+  function describe(name, fn) {
+    currentSuite = { name, cases: [] };
+    suites.push(currentSuite);
+    fn();
+  }
+
+  function it(name, fn) {
+    try {
+      fn();
+      currentSuite.cases.push({ name, status: 'pass' });
+    } catch (e) {
+      currentSuite.cases.push({ name, status: 'fail', detail: e.message });
+    }
+  }
+
+  function expect(val) {
+    return {
+      toBe:          (exp) => { if (val !== exp)             throw new Error(`oczekiwano ${JSON.stringify(exp)}, dostałem ${JSON.stringify(val)}`); },
+      toEqual:       (exp) => { if (JSON.stringify(val) !== JSON.stringify(exp)) throw new Error(`oczekiwano ${JSON.stringify(exp)}, dostałem ${JSON.stringify(val)}`); },
+      toBeGreaterThan:(exp) => { if (!(val > exp))           throw new Error(`${val} nie jest > ${exp}`); },
+      toBeGreaterThanOrEqual:(exp) => { if (!(val >= exp))   throw new Error(`${val} nie jest >= ${exp}`); },
+      toBeLessThanOrEqual:(exp) => { if (!(val <= exp))      throw new Error(`${val} nie jest <= ${exp}`); },
+      toBeTruthy:    ()    => { if (!val)                    throw new Error(`oczekiwano wartości prawdziwej, dostałem ${JSON.stringify(val)}`); },
+      toBeInstanceOf:(cls) => { if (!(val instanceof cls))   throw new Error(`oczekiwano instancji ${cls.name}`); },
+      toMatch:       (re)  => { if (!re.test(val))           throw new Error(`"${val}" nie pasuje do ${re}`); },
+    };
+  }
+
+  // ── testy ───────────────────────────────────────────────────────
+  async function runTests() {
+    let entries, summaries;
+
+    try {
+      entries   = await fetchSheetData();
+      summaries = buildDailySummaries(entries);
+    } catch (e) {
+      document.getElementById('loading').textContent = `Błąd pobierania danych: ${e.message}`;
+      return;
+    }
+
+    document.getElementById('loading').style.display = 'none';
+
+    // ── 1. fetchSheetData ────────────────────────────────────────
+    describe('fetchSheetData — struktura danych', () => {
+      it('zwraca tablicę', () => {
+        expect(Array.isArray(entries)).toBe(true);
+      });
+      it('tablica nie jest pusta', () => {
+        expect(entries.length).toBeGreaterThan(0);
+      });
+      it('wpisy są posortowane chronologicznie', () => {
+        for (let i = 1; i < entries.length; i++) {
+          if (entries[i].timestamp < entries[i-1].timestamp)
+            throw new Error(`wpis ${i} jest starszy niż ${i-1}`);
+        }
+      });
+    });
+
+    // ── 2. pola każdego wpisu ────────────────────────────────────
+    describe('Wpisy — wymagane pola', () => {
+      it('każdy wpis ma timestamp (Date)', () => {
+        entries.forEach((e, i) => {
+          if (!(e.timestamp instanceof Date) || isNaN(e.timestamp))
+            throw new Error(`wpis ${i}: timestamp nieprawidłowy`);
+        });
+      });
+      it('każdy wpis ma date w formacie YYYY-MM-DD', () => {
+        entries.forEach((e, i) => {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date))
+            throw new Error(`wpis ${i}: date="${e.date}"`);
+        });
+      });
+      it('każdy wpis ma niepusty title', () => {
+        entries.forEach((e, i) => {
+          if (!e.title || typeof e.title !== 'string')
+            throw new Error(`wpis ${i}: brak tytułu`);
+        });
+      });
+      it('hours jest liczbą dodatnią', () => {
+        entries.forEach((e, i) => {
+          if (typeof e.hours !== 'number' || e.hours <= 0)
+            throw new Error(`wpis ${i}: hours=${e.hours}`);
+        });
+      });
+    });
+
+    // ── 3. oceny ────────────────────────────────────────────────
+    describe('Wpisy — oceny (1–10)', () => {
+      const keys = ['interest', 'learning', 'difficulty', 'mood'];
+      keys.forEach(key => {
+        it(`${key} mieści się w zakresie 1–10`, () => {
+          entries.forEach((e, i) => {
+            const v = e.ratings[key];
+            if (!Number.isInteger(v) || v < 1 || v > 10)
+              throw new Error(`wpis ${i}: ${key}=${v}`);
+          });
+        });
+      });
+    });
+
+    // ── 4. buildDailySummaries ───────────────────────────────────
+    describe('buildDailySummaries — struktura', () => {
+      it('zwraca tablicę', () => {
+        expect(Array.isArray(summaries)).toBe(true);
+      });
+      it('nie więcej podsumowań niż wpisów', () => {
+        expect(summaries.length).toBeLessThanOrEqual(entries.length);
+      });
+      it('każde podsumowanie ma wymagane pola', () => {
+        summaries.forEach((s, i) => {
+          ['date','dateLabel','totalHours','avgInterest','avgLearning','avgDifficulty','avgMood'].forEach(f => {
+            if (s[f] === undefined) throw new Error(`podsumowanie ${i}: brak pola "${f}"`);
+          });
+        });
+      });
+      it('totalHours jest dodatnie', () => {
+        summaries.forEach((s, i) => {
+          if (s.totalHours <= 0) throw new Error(`dzień ${i}: totalHours=${s.totalHours}`);
+        });
+      });
+      it('średnie ocen mieszczą się w 1–10', () => {
+        summaries.forEach((s, i) => {
+          ['avgInterest','avgLearning','avgDifficulty','avgMood'].forEach(k => {
+            if (s[k] < 1 || s[k] > 10) throw new Error(`dzień ${i}: ${k}=${s[k]}`);
+          });
+        });
+      });
+      it('podsumowania posortowane chronologicznie', () => {
+        for (let i = 1; i < summaries.length; i++) {
+          if (summaries[i].date < summaries[i-1].date)
+            throw new Error(`podsumowanie ${i} (${summaries[i].date}) przed ${i-1} (${summaries[i-1].date})`);
+        }
+      });
+    });
+
+    // ── 5. edge case'y ───────────────────────────────────────────
+    describe('Edge case\'y', () => {
+      it('dateLabel ma format DD.MM', () => {
+        entries.forEach((e, i) => {
+          if (!/^\d{2}\.\d{2}$/.test(e.dateLabel))
+            throw new Error(`wpis ${i}: dateLabel="${e.dateLabel}"`);
+        });
+      });
+      it('date zgadza się z timestamp', () => {
+        entries.forEach((e, i) => {
+          const fromTs = e.timestamp.toISOString().slice(0, 10);
+          if (e.date !== fromTs)
+            throw new Error(`wpis ${i}: date="${e.date}" vs timestamp="${fromTs}"`);
+        });
+      });
+    });
+
+    // ── render ───────────────────────────────────────────────────
+    let totalPass = 0, totalFail = 0;
+    const out = document.getElementById('output');
+
+    suites.forEach(suite => {
+      const pass = suite.cases.filter(c => c.status === 'pass').length;
+      const fail = suite.cases.filter(c => c.status === 'fail').length;
+      totalPass += pass; totalFail += fail;
+
+      const div = document.createElement('div');
+      div.className = 'suite';
+      div.innerHTML = `<div style="padding:10px 16px 6px;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #f3f4f6">${suite.name} <span style="color:${fail?'#dc2626':'#059669'}">${pass}/${suite.cases.length}</span></div>`;
+      suite.cases.forEach(c => {
+        const row = document.createElement('div');
+        row.className = 'case';
+        row.innerHTML = `<span class="badge ${c.status}">${c.status === 'pass' ? 'PASS' : 'FAIL'}</span>
+          <div><div>${c.name}</div>${c.detail ? `<div class="detail">${c.detail}</div>` : ''}</div>`;
+        div.appendChild(row);
+      });
+      out.appendChild(div);
+    });
+
+    const sum = document.getElementById('summary');
+    sum.style.display = '';
+    sum.className = totalFail ? 'sum-fail' : 'sum-ok';
+    sum.textContent = totalFail
+      ? `✗ ${totalFail} test(y) nie przeszły (${totalPass} OK)`
+      : `✓ Wszystkie ${totalPass} testy przeszły`;
+  }
+
+  runTests();
+  </script>
+</body>
+</html>
