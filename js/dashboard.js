@@ -61,7 +61,7 @@ async function initDashboard() {
       scales: {
         y: {
           min: 0, max: 10,
-          ticks: { stepSize: 2 },
+          ticks: { stepSize: 1 },
           grid: { color: '#f0f0f0' }
         },
         x: {

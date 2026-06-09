@@ -42,13 +42,37 @@ header h1 { font-size: 18px; font-weight: 600; }
 
 .total-hours { font-size: 13px; color: #666; margin-top: 2px; display: block; }
 
-.status { text-align: center; padding: 32px; color: #888; font-size: 14px; }
+.day-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.nav-arrow {
+  font-size: 28px;
+  line-height: 1;
+  color: #534AB7;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  user-select: none;
+}
+
+.nav-arrow:hover { background: #f0eeff; }
+
+.nav-arrow--disabled {
+  color: #ccc;
+  pointer-events: none;
+}
+
+.status { text-align: center; padding: 8px; color: #888; font-size: 14px; min-height: 0; }
 
 .chart-single-wrap {
   background: white;
   border-radius: 0;
-  padding: 20px 0 8px;
-  margin: 20px 0;
+  padding: 12px 0 8px;
+  margin: 0;
   border-top: 1px solid #e5e7eb;
   border-bottom: 1px solid #e5e7eb;
 }

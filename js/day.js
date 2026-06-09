@@ -18,6 +18,16 @@ async function initDayView() {
     return;
   }
 
+  // Nawigacja prev/next
+  const allDates = [...new Set(allEntries.map(e => e.date))].sort();
+  const idx = allDates.indexOf(date);
+  const prevEl = document.getElementById('nav-prev');
+  const nextEl = document.getElementById('nav-next');
+  if (idx > 0)                    prevEl.href = `day.html?date=${allDates[idx - 1]}`;
+  else                            prevEl.classList.add('nav-arrow--disabled');
+  if (idx < allDates.length - 1)  nextEl.href = `day.html?date=${allDates[idx + 1]}`;
+  else                            nextEl.classList.add('nav-arrow--disabled');
+
   const dateObj = new Date(date + 'T12:00:00');
   document.getElementById('day-title').textContent =
     dateObj.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
