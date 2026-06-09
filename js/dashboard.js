@@ -125,6 +125,50 @@ async function initDashboard() {
 
   // Przewiń do ostatnich VISIBLE_DAYS dni
   requestAnimationFrame(() => { scroll.scrollLeft = scroll.scrollWidth; });
+
+  // Eksport CSV
+  document.getElementById('btn-export').style.display = '';
+  document.getElementById('btn-export').onclick = () => exportCSV(entries);
+
+  // Lista projektów
+  const projects = buildProjectList(entries);
+  const list = document.getElementById('projects-list');
+  const pluralWpis = n => n === 1 ? 'wpis' : n < 5 ? 'wpisy' : 'wpisów';
+  projects.forEach(p => {
+    const card = document.createElement('a');
+    card.href = `project.html?name=${encodeURIComponent(p.name)}`;
+    card.className = 'project-card';
+    card.innerHTML = `
+      <div class="project-card-header">
+        <span class="project-name">${p.name}</span>
+        <span class="project-hours">${p.hours}h</span>
+      </div>
+      <div class="project-meta">${p.count} ${pluralWpis(p.count)}</div>
+    `;
+    list.appendChild(card);
+  });
+  document.getElementById('projects-section').style.display = '';
+}
+
+function exportCSV(entries) {
+  const esc = v => `"${String(v).replace(/"/g, '""')}"`;
+  const rows = [
+    ['data', 'projekt', 'wpis', 'czas'].map(esc).join(','),
+    ...entries.map(e => [
+      e.date,
+      e.project,
+      e.title,
+      e.hours,
+    ].map(esc).join(','))
+  ];
+  const bom  = '﻿';
+  const blob = new Blob([bom + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `dzienniczek-stazysty-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 initDashboard();

@@ -13,5 +13,6 @@ const CONFIG = {
     learning:    5,
     difficulty:  6,
     mood:        7,
+    project:     8,
   }
 };

@@ -80,6 +80,7 @@ function buildMockEntries() {
       const timestamp = new Date(date);
       timestamp.setHours(9 + t * 2 + rnd(0, 1), rnd(0, 59), 0, 0);
 
+      const DEMO_PROJECTS = ['Frontend', 'Backend', 'DevOps', 'Dokumentacja'];
       entries.push({
         timestamp,
         date:        timestamp.toISOString().slice(0, 10),
@@ -87,6 +88,7 @@ function buildMockEntries() {
         title,
         description: desc,
         hours:       Math.max(0.5, baseHours + (rnd(0, 4) - 2) * 0.25),
+        project:     DEMO_PROJECTS[taskIdx % DEMO_PROJECTS.length],
         ratings: {
           interest:   clamp(baseI + rnd(0, 4) - 2, 1, 10),
           learning:   clamp(baseL + rnd(0, 4) - 2, 1, 10),
@@ -146,6 +148,7 @@ function parseResponse(response) {
         title:       get(CONFIG.COLUMNS.title)       ?? '',
         description: get(CONFIG.COLUMNS.description) ?? '',
         hours:       parseFloat(String(get(CONFIG.COLUMNS.hours) ?? '').replace(',', '.')) || 0,
+        project:     get(CONFIG.COLUMNS.project) ?? '(brak projektu)',
         ratings: {
           interest:   parseInt(get(CONFIG.COLUMNS.interest))   || 0,
           learning:   parseInt(get(CONFIG.COLUMNS.learning))   || 0,
@@ -169,6 +172,18 @@ function formatDateLabel(date) {
   return `${d}.${m}`;
 }
 
+function buildProjectList(entries) {
+  const map = {};
+  for (const e of entries) {
+    if (!map[e.project]) map[e.project] = { name: e.project, hours: 0, count: 0 };
+    map[e.project].hours += e.hours;
+    map[e.project].count += 1;
+  }
+  return Object.values(map)
+    .map(p => ({ ...p, hours: Math.round(p.hours * 10) / 10 }))
+    .sort((a, b) => b.hours - a.hours);
+}
+
 function buildDailySummaries(entries) {
   const byDay = {};
   for (const e of entries) {
@@ -179,15 +194,15 @@ function buildDailySummaries(entries) {
   return Object.entries(byDay)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, dayEntries]) => {
-      const n = dayEntries.length;
+      const totalHrs = dayEntries.reduce((s, e) => s + e.hours, 0);
       const avg = key => Math.round(
-        dayEntries.reduce((s, e) => s + e.ratings[key], 0) / n * 10
+        dayEntries.reduce((s, e) => s + e.ratings[key] * e.hours, 0) / totalHrs * 10
       ) / 10;
       return {
         date,
         dateLabel:     dayEntries[0].dateLabel,
         totalHours:    Math.round(dayEntries.reduce((s, e) => s + e.hours, 0) * 10) / 10,
-        entryCount:    n,
+        entryCount:    dayEntries.length,
         avgInterest:   avg('interest'),
         avgLearning:   avg('learning'),
         avgDifficulty: avg('difficulty'),
