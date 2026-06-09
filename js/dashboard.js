@@ -82,7 +82,7 @@ async function initDashboard() {
         y: {
           min: 0, max: 10,
           ticks: { stepSize: 1 },
-          grid: { color: '#f0f0f0' }
+          grid: { color: chartGridColor() }
         },
         x: {
           ticks: {

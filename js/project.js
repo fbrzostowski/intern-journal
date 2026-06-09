@@ -64,7 +64,7 @@ async function initProjectView() {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-          y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: '#f0f0f0' } },
+          y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: chartGridColor() } },
           x: {
             ticks: { color: '#333', font: { size: 12, weight: '500' } },
             grid: { display: false }

@@ -172,6 +172,10 @@ function formatDateLabel(date) {
   return `${d}.${m}`;
 }
 
+function chartGridColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();
+}
+
 function buildProjectList(entries) {
   const map = {};
   for (const e of entries) {
