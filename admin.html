@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dzienniczek stażysty — Admin</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>Dzienniczek stażysty</h1>
+      <span class="admin-badge">Admin</span>
+    </div>
+    <div class="header-actions">
+      <select id="intern-selector" class="intern-selector">
+        <option value="">Wszyscy stażyści</option>
+      </select>
+      <div class="header-user">
+        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <span id="user-name" class="user-name"></span>
+        <button id="btn-logout" class="btn-logout">Wyloguj</button>
+      </div>
+    </div>
+  </header>
+
+  <p id="status" class="status">Ładowanie…</p>
+
+  <div id="stats-bar" class="stats-bar" style="display:none">
+    <div class="stat-item">
+      <span class="stat-value" id="stat-total">—</span>
+      <span class="stat-label">godzin ogółem</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-value" id="stat-month">—</span>
+      <span class="stat-label">w tym miesiącu</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-value" id="stat-week">—</span>
+      <span class="stat-label">w tym tygodniu</span>
+    </div>
+  </div>
+
+  <div class="chart-single-wrap">
+    <div id="chart-legend" class="chart-legend"></div>
+    <div class="chart-scroll" id="chart-scroll">
+      <canvas id="chart-main"></canvas>
+      <div id="chart-ticks" class="chart-ticks"></div>
+    </div>
+  </div>
+
+  <div id="projects-section" style="display:none">
+    <h2 class="section-title">Projekty</h2>
+    <div id="projects-list" class="projects-list"></div>
+  </div>
+
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

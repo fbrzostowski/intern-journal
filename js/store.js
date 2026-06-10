@@ -1,7 +1,7 @@
 import { db } from "./config.js";
 import {
   collection, query, where, orderBy,
-  addDoc, updateDoc, doc, onSnapshot, serverTimestamp,
+  addDoc, updateDoc, doc, getDocs, onSnapshot, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
 const CACHE_KEY = "dzienniczek_entries";
@@ -98,6 +98,39 @@ export async function updateEntry(entryId, data) {
     learning:    data.learning,
     difficulty:  data.difficulty,
     mood:        data.mood,
+  });
+}
+
+export async function getAllUsers() {
+  const snap = await getDocs(collection(db, "users"));
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+}
+
+export function subscribeAllEntries(callback) {
+  const q = query(collection(db, "entries"), orderBy("timestamp", "asc"));
+  return onSnapshot(q, (snap) => {
+    const entries = snap.docs.map(d => {
+      const data = d.data();
+      const ts   = data.timestamp?.toDate() ?? new Date();
+      return {
+        id:          d.id,
+        uid:         data.uid,
+        timestamp:   ts,
+        date:        ts.toISOString().slice(0, 10),
+        dateLabel:   formatDateLabel(ts),
+        title:       data.title       ?? "",
+        description: data.description ?? "",
+        hours:       data.hours       || 0,
+        project:     data.project     || "(brak projektu)",
+        ratings: {
+          interest:   data.interest   || 0,
+          learning:   data.learning   || 0,
+          difficulty: data.difficulty || 0,
+          mood:       data.mood       || 0,
+        },
+      };
+    }).sort((a, b) => a.timestamp - b.timestamp);
+    callback(entries);
   });
 }
 
