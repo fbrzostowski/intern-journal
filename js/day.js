@@ -1,5 +1,6 @@
 import { requireAuth } from "./auth.js";
 import { subscribeUserEntries, chartGridColor } from "./store.js";
+import { setupEditModal, openEditModal } from "./edit-modal.js";
 
 const CATEGORIES = [
   { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
@@ -14,6 +15,7 @@ async function init() {
   if (!date) { window.location.href = 'index.html'; return; }
 
   const { user } = await requireAuth();
+  setupEditModal();
 
   subscribeUserEntries(user.uid, (allEntries) => {
     const dayEntries = allEntries.filter(e => e.date === date);
@@ -49,7 +51,15 @@ async function init() {
         <div class="entry-info">
           <div class="entry-header">
             <span class="entry-title">${entry.title}</span>
-            <span class="entry-hours">${entry.hours}h</span>
+            <div class="entry-header-right">
+              <span class="entry-hours">${entry.hours}h</span>
+              <button class="btn-edit-entry" title="Edytuj wpis">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <a href="project.html?name=${encodeURIComponent(entry.project)}" class="entry-project-link">${entry.project}</a>
           ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
@@ -58,6 +68,7 @@ async function init() {
           <canvas id="chart-entry-${i}"></canvas>
         </div>
       `;
+      wrap.querySelector('.btn-edit-entry').addEventListener('click', () => openEditModal(entry));
       grid.appendChild(wrap);
 
       new Chart(document.getElementById(`chart-entry-${i}`).getContext('2d'), {

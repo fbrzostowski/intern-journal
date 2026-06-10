@@ -1,7 +1,7 @@
 import { db } from "./config.js";
 import {
   collection, query, where, orderBy,
-  addDoc, onSnapshot, serverTimestamp,
+  addDoc, updateDoc, doc, onSnapshot, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
 const CACHE_KEY = "dzienniczek_entries";
@@ -76,6 +76,20 @@ export async function addEntry(uid, data) {
   await addDoc(collection(db, "entries"), {
     uid,
     timestamp:   serverTimestamp(),
+    title:       data.title,
+    description: data.description,
+    hours:       data.hours,
+    project:     data.project,
+    interest:    data.interest,
+    learning:    data.learning,
+    difficulty:  data.difficulty,
+    mood:        data.mood,
+  });
+}
+
+export async function updateEntry(entryId, data) {
+  clearCache();
+  await updateDoc(doc(db, "entries", entryId), {
     title:       data.title,
     description: data.description,
     hours:       data.hours,
