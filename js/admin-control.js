@@ -1,7 +1,7 @@
 import { requireAuth, logout } from "./auth.js";
 import { getAllUsers, updateUserRole, deleteUser } from "./store.js";
 
-const ROLE_LABELS = { setup: "Oczekuje", intern: "Stażysta", admin: "Administrator" };
+const ROLE_LABELS = { setup: "Oczekuje", admin: "Administrator", intern: "Stażysta", inactive: "Nie Aktywny" };
 
 let currentUid = null;
 
@@ -23,8 +23,8 @@ async function renderUsers() {
 
   const users = await getAllUsers();
   users.sort((a, b) => {
-    const order = { setup: 0, intern: 1, admin: 2 };
-    return (order[a.role] ?? 3) - (order[b.role] ?? 3)
+    const order = { setup: 0, admin: 1, intern: 2, inactive: 3 };
+    return (order[a.role] ?? 4) - (order[b.role] ?? 4)
       || (a.name ?? a.email).localeCompare(b.name ?? b.email);
   });
 
@@ -33,7 +33,7 @@ async function renderUsers() {
   users.forEach(u => {
     const isSelf = u.uid === currentUid;
     const row = document.createElement("div");
-    row.className = "user-row";
+    row.className = "user-row" + (u.role === "inactive" ? " user-row--inactive" : "");
     row.dataset.uid = u.uid;
 
     row.innerHTML = `
@@ -49,9 +49,10 @@ async function renderUsers() {
       <div class="user-row-actions">
         <select class="user-role-select${isSelf ? " user-role-select--disabled" : ""}"
           ${isSelf ? "disabled" : ""}>
-          <option value="setup"  ${u.role === "setup"  ? "selected" : ""}>Oczekuje</option>
-          <option value="intern" ${u.role === "intern" ? "selected" : ""}>Stażysta</option>
-          <option value="admin"  ${u.role === "admin"  ? "selected" : ""}>Administrator</option>
+          <option value="setup"    ${u.role === "setup"    ? "selected" : ""}>Oczekuje</option>
+          <option value="admin"    ${u.role === "admin"    ? "selected" : ""}>Administrator</option>
+          <option value="intern"   ${u.role === "intern"   ? "selected" : ""}>Stażysta</option>
+          <option value="inactive" ${u.role === "inactive" ? "selected" : ""}>Nie Aktywny</option>
         </select>
         <button class="btn-delete-user${isSelf ? " btn-delete-user--disabled" : ""}"
           title="Usuń użytkownika" ${isSelf ? "disabled" : ""}>

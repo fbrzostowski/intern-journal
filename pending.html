@@ -10,11 +10,8 @@
 <body class="login-page">
   <div class="login-card">
     <img src="icon.png" alt="Logo" class="login-logo-img">
-    <h1>Konto oczekuje zatwierdzenia</h1>
-    <p class="pending-info">
-      Twoje konto zostało zarejestrowane.<br>
-      Administrator musi przypisać Ci rolę zanim uzyskasz dostęp do aplikacji.
-    </p>
+    <h1 id="pending-title">Konto oczekuje zatwierdzenia</h1>
+    <p id="pending-info" class="pending-info"></p>
     <p id="pending-email" class="pending-email"></p>
     <button id="btn-logout" class="btn-google" style="margin-top:8px">Wyloguj się</button>
   </div>
@@ -29,11 +26,19 @@
 
       document.getElementById("pending-email").textContent = user.email;
 
+      const MESSAGES = {
+        setup:    { title: "Konto oczekuje zatwierdzenia", info: "Twoje konto zostało zarejestrowane.\nAdministrator musi przypisać Ci rolę zanim uzyskasz dostęp do aplikacji." },
+        inactive: { title: "Konto nieaktywne",             info: "Twoje konto zostało dezaktywowane.\nSkontaktuj się z administratorem." },
+      };
+
       onSnapshot(doc(db, "users", user.uid), (snap) => {
         if (!snap.exists()) return;
         const role = snap.data().role;
-        if (role === "intern") { window.location.href = "index.html"; return; }
-        if (role === "admin")  { window.location.href = "admin.html"; return; }
+        if (role === "intern")   { window.location.href = "index.html"; return; }
+        if (role === "admin")    { window.location.href = "admin.html"; return; }
+        const msg = MESSAGES[role] ?? MESSAGES.setup;
+        document.getElementById("pending-title").textContent = msg.title;
+        document.getElementById("pending-info").textContent  = msg.info;
       });
     });
 

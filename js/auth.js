@@ -59,7 +59,7 @@ export function requireAuth(requiredRole = null) {
         return;
       }
       const role = await getUserRole(user);
-      if (role === "setup") {
+      if (role === "setup" || role === "inactive") {
         window.location.href = "pending.html";
         return;
       }

@@ -900,7 +900,9 @@ input[type="range"] {
   padding: 12px 16px;
   transition: opacity .2s;
 }
-.user-row--deleting { opacity: .4; pointer-events: none; }
+.user-row--deleting  { opacity: .4; pointer-events: none; }
+.user-row--inactive  { opacity: .6; }
+.user-row--inactive .user-row-name { text-decoration: line-through; color: var(--text-3); }
 
 .user-row-identity {
   display: flex;
