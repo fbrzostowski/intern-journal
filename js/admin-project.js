@@ -77,10 +77,10 @@ function renderView() {
 
     const author = usersMap.get(entry.uid);
     const authorHtml = author ? `
-      <div class="entry-author">
+      <a href="admin-intern.html?uid=${entry.uid}" class="entry-author">
         ${author.photoURL ? `<img src="${author.photoURL}" class="entry-author-avatar" alt="">` : ''}
         <span class="entry-author-name">${author.name ?? author.email}</span>
-      </div>` : '';
+      </a>` : '';
 
     const wrap = document.createElement('div');
     wrap.className = 'chart-wrap entry-card';
