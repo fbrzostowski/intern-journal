@@ -1,5 +1,5 @@
 import { requireAuth, logout } from "./auth.js";
-import { getAllUsers, updateUserRole, deleteUser } from "./store.js";
+import { getAllUsers, updateUserRole, updateUserChatSpaceId, deleteUser } from "./store.js";
 
 const ROLE_LABELS = { setup: "Oczekuje", admin: "Administrator", intern: "Stażysta", inactive: "Nie Aktywny" };
 
@@ -31,40 +31,53 @@ async function renderUsers() {
   list.innerHTML = "";
 
   users.forEach(u => {
-    const isSelf = u.uid === currentUid;
+    const isSelf  = u.uid === currentUid;
+    const isAdmin = u.role === "admin";
     const row = document.createElement("div");
-    row.className = "user-row" + (u.role === "inactive" ? " user-row--inactive" : "");
+    row.className = "user-row"
+      + (isAdmin ? " user-row--admin" : "")
+      + (u.role === "inactive" ? " user-row--inactive" : "");
     row.dataset.uid = u.uid;
 
     row.innerHTML = `
-      <div class="user-row-identity">
-        ${u.photoURL
-          ? `<img src="${u.photoURL}" class="user-row-avatar" alt="">`
-          : `<div class="user-row-avatar user-row-avatar--placeholder"></div>`}
-        <div class="user-row-info">
-          <span class="user-row-name">${u.name ?? "—"}</span>
-          <span class="user-row-email">${u.email}</span>
+      <div class="user-row-top">
+        <div class="user-row-identity">
+          ${u.photoURL
+            ? `<img src="${u.photoURL}" class="user-row-avatar" alt="">`
+            : `<div class="user-row-avatar user-row-avatar--placeholder"></div>`}
+          <div class="user-row-info">
+            <span class="user-row-name">${u.name ?? "—"}</span>
+            <span class="user-row-email">${u.email}</span>
+          </div>
+        </div>
+        <div class="user-row-actions">
+          <select class="user-role-select${isSelf ? " user-role-select--disabled" : ""}"
+            ${isSelf ? "disabled" : ""}>
+            ${u.role === "setup" ? `<option value="setup" selected>Oczekuje</option>` : ""}
+            <option value="admin"    ${u.role === "admin"    ? "selected" : ""}>Administrator</option>
+            <option value="intern"   ${u.role === "intern"   ? "selected" : ""}>Stażysta</option>
+            <option value="inactive" ${u.role === "inactive" ? "selected" : ""}>Nie Aktywny</option>
+          </select>
+          <button class="btn-delete-user${isSelf ? " btn-delete-user--disabled" : ""}"
+            title="Usuń użytkownika" ${isSelf ? "disabled" : ""}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
         </div>
       </div>
-      <div class="user-row-actions">
-        <select class="user-role-select${isSelf ? " user-role-select--disabled" : ""}"
-          ${isSelf ? "disabled" : ""}>
-          ${u.role === "setup" ? `<option value="setup" selected>Oczekuje</option>` : ""}
-          <option value="admin"    ${u.role === "admin"    ? "selected" : ""}>Administrator</option>
-          <option value="intern"   ${u.role === "intern"   ? "selected" : ""}>Stażysta</option>
-          <option value="inactive" ${u.role === "inactive" ? "selected" : ""}>Nie Aktywny</option>
-        </select>
-        <button class="btn-delete-user${isSelf ? " btn-delete-user--disabled" : ""}"
-          title="Usuń użytkownika" ${isSelf ? "disabled" : ""}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-            <path d="M10 11v6M14 11v6"/>
-            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-          </svg>
-        </button>
-      </div>
+      ${isAdmin ? `
+      <div class="user-row-chat">
+        <span class="user-row-chat-label">Google Chat Space ID</span>
+        <input type="text" class="chat-space-id-input"
+          placeholder="np. AAABBBCCC…"
+          value="${u.chatSpaceId ?? ""}">
+        <span class="chat-space-id-status"></span>
+      </div>` : ""}
     `;
 
     if (!isSelf) {
@@ -95,6 +108,28 @@ async function renderUsers() {
           showToast("Błąd: " + e.message, true);
         }
       });
+
+      const chatInput = row.querySelector(".chat-space-id-input");
+      if (chatInput) {
+        let saveTimer = null;
+        const statusEl = row.querySelector(".chat-space-id-status");
+        chatInput.addEventListener("input", () => {
+          clearTimeout(saveTimer);
+          statusEl.textContent = "";
+          saveTimer = setTimeout(async () => {
+            const val = chatInput.value.trim();
+            try {
+              await updateUserChatSpaceId(u.uid, val);
+              statusEl.textContent = "Zapisano.";
+              statusEl.style.color = "var(--green)";
+              setTimeout(() => { statusEl.textContent = ""; }, 2000);
+            } catch (e) {
+              statusEl.textContent = "Błąd zapisu";
+              statusEl.style.color = "#dc2626";
+            }
+          }, 800);
+        });
+      }
     }
 
     list.appendChild(row);

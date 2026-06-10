@@ -106,6 +106,10 @@ export async function updateUserRole(uid, role) {
   await updateDoc(doc(db, "users", uid), { role });
 }
 
+export async function updateUserChatSpaceId(uid, chatSpaceId) {
+  await updateDoc(doc(db, "users", uid), { chatSpaceId });
+}
+
 export async function deleteUser(uid) {
   const entriesSnap = await getDocs(
     query(collection(db, "entries"), where("uid", "==", uid))

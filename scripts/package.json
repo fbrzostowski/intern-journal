@@ -1,0 +1,10 @@
+{
+  "name": "dzienniczek-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "firebase-admin": "^12.3.0",
+    "googleapis": "^144.0.0"
+  }
+}
