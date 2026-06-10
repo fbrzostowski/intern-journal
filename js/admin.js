@@ -3,6 +3,7 @@ import {
   subscribeAllEntries, getAllUsers,
   buildDailySummaries, buildProjectList, chartGridColor,
 } from "./store.js";
+import { buildInternPicker } from "./intern-picker.js";
 
 const CHART_DEFS = [
   { key: "avgInterest",   label: "Ciekawość",    color: "#534AB7" },
@@ -24,32 +25,16 @@ async function init() {
   document.getElementById("btn-logout").addEventListener("click", logout);
 
   const users = await getAllUsers();
-  populateSelector(users);
-
-  const sel = document.getElementById("intern-selector");
-  sel.value = selectedUid ?? "";
-  sel.addEventListener("change", (e) => {
-    selectedUid = e.target.value || null;
-    renderView();
-  });
+  buildInternPicker(
+    document.getElementById("intern-picker-wrap"),
+    users, selectedUid,
+    (uid) => { selectedUid = uid; renderView(); }
+  );
 
   subscribeAllEntries((entries) => {
     allEntries = entries;
     renderView();
   });
-}
-
-function populateSelector(users) {
-  const sel = document.getElementById("intern-selector");
-  users
-    .filter(u => u.role === "intern")
-    .sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email))
-    .forEach(u => {
-      const opt = document.createElement("option");
-      opt.value       = u.uid;
-      opt.textContent = u.name ?? u.email;
-      sel.appendChild(opt);
-    });
 }
 
 function renderView() {

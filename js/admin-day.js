@@ -1,5 +1,6 @@
 import { requireAuth, logout } from "./auth.js";
 import { subscribeAllEntries, getAllUsers, chartGridColor } from "./store.js";
+import { buildInternPicker } from "./intern-picker.js";
 
 const CATEGORIES = [
   { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
@@ -24,15 +25,11 @@ async function init() {
   document.getElementById('btn-logout').addEventListener('click', logout);
 
   const users = await getAllUsers();
-  populateSelector(users);
-
-  const sel = document.getElementById('intern-selector');
-  sel.value = selectedUid ?? '';
-  sel.addEventListener('change', (e) => {
-    selectedUid = e.target.value || null;
-    updateBackLink();
-    renderView();
-  });
+  buildInternPicker(
+    document.getElementById('intern-picker-wrap'),
+    users, selectedUid,
+    (uid) => { selectedUid = uid; updateBackLink(); renderView(); }
+  );
 
   updateBackLink();
 
@@ -42,18 +39,6 @@ async function init() {
   });
 }
 
-function populateSelector(users) {
-  const sel = document.getElementById('intern-selector');
-  users
-    .filter(u => u.role === 'intern')
-    .sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email))
-    .forEach(u => {
-      const opt = document.createElement('option');
-      opt.value       = u.uid;
-      opt.textContent = u.name ?? u.email;
-      sel.appendChild(opt);
-    });
-}
 
 function updateBackLink() {
   const back = document.getElementById('btn-back');

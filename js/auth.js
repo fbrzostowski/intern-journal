@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
@@ -34,11 +35,16 @@ export async function getUserRole(user) {
       role:      "intern",
       email:     user.email,
       name:      user.displayName,
+      photoURL:  user.photoURL ?? null,
       createdAt: serverTimestamp(),
     });
     return "intern";
   }
-  return snap.data().role;
+  const data = snap.data();
+  if (data.photoURL !== user.photoURL) {
+    await updateDoc(ref, { photoURL: user.photoURL ?? null });
+  }
+  return data.role;
 }
 
 // Guard — wywołaj na początku każdej chronionej strony.

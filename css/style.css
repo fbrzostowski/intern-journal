@@ -415,6 +415,74 @@ header h1 { font-size: 18px; font-weight: 600; }
   padding: 2px 8px;
 }
 
+/* ── Intern picker (custom dropdown z avatarami) ───────────────── */
+.intern-picker {
+  position: relative;
+}
+
+.ip-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 180px;
+}
+.ip-btn:hover { border-color: var(--accent); }
+
+.ip-arrow {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.ip-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  z-index: 200;
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.ip-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+  white-space: nowrap;
+}
+.ip-option:hover { background: var(--surface-2); }
+.ip-option--active { color: var(--accent); font-weight: 600; }
+
+.ip-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.ip-avatar--all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
 .intern-selector {
   height: 34px;
   padding: 0 10px;
