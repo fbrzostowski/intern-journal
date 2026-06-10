@@ -123,7 +123,7 @@ function renderView() {
           <span class="entry-hours">${entry.hours}h</span>
         </div>
         ${authorHtml}
-        <span class="entry-date-link">${dateStr}</span>
+        <a href="admin-day.html?date=${entry.date}${selectedUid ? `&uid=${selectedUid}` : ''}" class="entry-date-link">${dateStr}</a>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
       </div>
       <div class="entry-canvas-wrap">
