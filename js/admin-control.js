@@ -49,7 +49,7 @@ async function renderUsers() {
       <div class="user-row-actions">
         <select class="user-role-select${isSelf ? " user-role-select--disabled" : ""}"
           ${isSelf ? "disabled" : ""}>
-          <option value="setup"    ${u.role === "setup"    ? "selected" : ""}>Oczekuje</option>
+          ${u.role === "setup" ? `<option value="setup" selected>Oczekuje</option>` : ""}
           <option value="admin"    ${u.role === "admin"    ? "selected" : ""}>Administrator</option>
           <option value="intern"   ${u.role === "intern"   ? "selected" : ""}>Stażysta</option>
           <option value="inactive" ${u.role === "inactive" ? "selected" : ""}>Nie Aktywny</option>
