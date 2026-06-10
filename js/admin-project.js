@@ -14,6 +14,7 @@ const projectName = params.get('name');
 let selectedUid   = params.get('uid') || null;
 let allEntries    = [];
 let usersMap      = new Map();
+let activePeriod  = 'all';
 
 async function init() {
   if (!projectName) { window.location.href = 'admin.html'; return; }
@@ -37,10 +38,39 @@ async function init() {
 
   updateBackLink();
 
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activePeriod = btn.dataset.period;
+      updatePeriodBtns();
+      renderView();
+    });
+  });
+  updatePeriodBtns();
+
   subscribeAllEntries((entries) => {
     allEntries = entries;
     renderView();
   });
+}
+
+function updatePeriodBtns() {
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.classList.toggle('period-btn--active', btn.dataset.period === activePeriod);
+  });
+}
+
+function periodStart() {
+  const now = new Date();
+  if (activePeriod === 'week') {
+    const d = new Date(now);
+    d.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  if (activePeriod === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  return null;
 }
 
 
@@ -50,9 +80,11 @@ function updateBackLink() {
 }
 
 function renderView() {
+  const start = periodStart();
   const entries = allEntries
     .filter(e => e.project === projectName)
-    .filter(e => !selectedUid || e.uid === selectedUid);
+    .filter(e => !selectedUid || e.uid === selectedUid)
+    .filter(e => !start || e.timestamp >= start);
 
   document.getElementById('project-title').textContent = projectName;
 
