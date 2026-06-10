@@ -28,13 +28,25 @@ async function init() {
   buildInternPicker(
     document.getElementById("intern-picker-wrap"),
     users, selectedUid,
-    (uid) => { selectedUid = uid; renderView(); }
+    (uid) => { selectedUid = uid; updateAllEntriesBtn(); renderView(); }
   );
+
+  updateAllEntriesBtn();
 
   subscribeAllEntries((entries) => {
     allEntries = entries;
     renderView();
   });
+}
+
+function updateAllEntriesBtn() {
+  const btn = document.getElementById("btn-all-entries");
+  if (selectedUid) {
+    btn.href         = `admin-intern.html?uid=${selectedUid}`;
+    btn.style.display = "";
+  } else {
+    btn.style.display = "none";
+  }
 }
 
 function renderView() {

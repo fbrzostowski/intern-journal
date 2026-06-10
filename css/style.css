@@ -434,6 +434,39 @@ header h1 { font-size: 18px; font-weight: 600; }
   padding: 2px 8px;
 }
 
+.btn-all-entries {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.btn-all-entries:hover { background: var(--accent); color: #fff; }
+
+.intern-title-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.entry-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
 /* ── Intern picker (custom dropdown z avatarami) ───────────────── */
 .intern-picker {
   position: relative;
