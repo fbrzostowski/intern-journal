@@ -13,7 +13,7 @@ const CHART_DEFS = [
 
 let chart      = null;
 let allEntries = [];
-let selectedUid = null;
+let selectedUid = new URLSearchParams(window.location.search).get('uid') || null;
 
 async function init() {
   const { user } = await requireAuth("admin");
@@ -26,7 +26,9 @@ async function init() {
   const users = await getAllUsers();
   populateSelector(users);
 
-  document.getElementById("intern-selector").addEventListener("change", (e) => {
+  const sel = document.getElementById("intern-selector");
+  sel.value = selectedUid ?? "";
+  sel.addEventListener("change", (e) => {
     selectedUid = e.target.value || null;
     renderView();
   });
@@ -160,8 +162,10 @@ function renderProjects(projects) {
   list.innerHTML = "";
   const plural = n => n === 1 ? "wpis" : n < 5 ? "wpisy" : "wpisów";
   projects.forEach(p => {
-    const card = document.createElement("div");
-    card.className = "project-card project-card--readonly";
+    const uidParam = selectedUid ? `&uid=${selectedUid}` : "";
+    const card = document.createElement("a");
+    card.href      = `admin-project.html?name=${encodeURIComponent(p.name)}${uidParam}`;
+    card.className = "project-card";
     card.innerHTML = `
       <div class="project-card-header">
         <span class="project-name">${p.name}</span>

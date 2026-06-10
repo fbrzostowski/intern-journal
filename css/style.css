@@ -438,6 +438,12 @@ header h1 { font-size: 18px; font-weight: 600; }
   box-shadow: none;
 }
 
+.header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .tick-label {
   position: absolute;
   transform: translateX(-50%);

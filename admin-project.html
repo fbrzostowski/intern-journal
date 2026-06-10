@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dzienniczek — Admin — projekt</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a id="btn-back" href="admin.html" class="btn-back">← Wróć</a>
+      <div>
+        <div class="header-title-row">
+          <h1 id="project-title"></h1>
+          <span class="admin-badge">Admin</span>
+        </div>
+        <span id="total-hours" class="total-hours"></span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <select id="intern-selector" class="intern-selector">
+        <option value="">Wszyscy stażyści</option>
+      </select>
+      <div class="header-user">
+        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <span id="user-name" class="user-name"></span>
+        <button id="btn-logout" class="btn-logout">Wyloguj</button>
+      </div>
+    </div>
+  </header>
+
+  <p id="status" class="status"></p>
+  <div class="charts-grid" id="charts-grid"></div>
+
+  <script type="module" src="js/admin-project.js"></script>
+</body>
+</html>
