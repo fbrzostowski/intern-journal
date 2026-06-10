@@ -136,6 +136,18 @@ function renderChart(summaries) {
           grid: { display: false },
         },
       },
+      onClick(event, _el, c) {
+        const xScale = c.scales.x;
+        let closest = -1, minDist = 40;
+        dateLabels.forEach((_, i) => {
+          const dist = Math.abs(event.x - xScale.getPixelForTick(i));
+          if (dist < minDist) { minDist = dist; closest = i; }
+        });
+        if (closest >= 0) {
+          const uidParam = selectedUid ? `&uid=${selectedUid}` : "";
+          window.location.href = `admin-day.html?date=${summaries[closest].date}${uidParam}`;
+        }
+      },
       plugins: { legend: { display: false } },
     },
   });
@@ -144,11 +156,13 @@ function renderChart(summaries) {
   ticks.innerHTML = "";
   ticks.style.width = chartW + "px";
   summaries.forEach((s, i) => {
-    const span = document.createElement("span");
-    span.className   = "tick-label";
-    span.textContent = s.dateLabel;
-    span.style.left  = chart.scales.x.getPixelForTick(i) + "px";
-    ticks.appendChild(span);
+    const uidParam = selectedUid ? `&uid=${selectedUid}` : "";
+    const a = document.createElement("a");
+    a.href      = `admin-day.html?date=${s.date}${uidParam}`;
+    a.className = "tick-btn";
+    a.textContent = s.dateLabel;
+    a.style.left  = chart.scales.x.getPixelForTick(i) + "px";
+    ticks.appendChild(a);
   });
 
   requestAnimationFrame(() => {
