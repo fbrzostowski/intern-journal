@@ -13,6 +13,7 @@ const params    = new URLSearchParams(window.location.search);
 const date      = params.get('date');
 let selectedUid = params.get('uid') || null;
 let allEntries  = [];
+let usersMap    = new Map();
 
 async function init() {
   if (!date) { window.location.href = 'admin.html'; return; }
@@ -25,6 +26,7 @@ async function init() {
   document.getElementById('btn-logout').addEventListener('click', logout);
 
   const users = await getAllUsers();
+  usersMap = new Map(users.map(u => [u.uid, u]));
   buildInternPicker(
     document.getElementById('intern-picker-wrap'),
     users, selectedUid,
@@ -88,6 +90,13 @@ function renderView() {
     const uidParam   = selectedUid ? `&uid=${selectedUid}` : '';
     const projectUrl = `admin-project.html?name=${encodeURIComponent(entry.project)}${uidParam}`;
 
+    const author = usersMap.get(entry.uid);
+    const authorHtml = author ? `
+      <div class="entry-author">
+        ${author.photoURL ? `<img src="${author.photoURL}" class="entry-author-avatar" alt="">` : ''}
+        <span class="entry-author-name">${author.name ?? author.email}</span>
+      </div>` : '';
+
     const wrap = document.createElement('div');
     wrap.className = 'chart-wrap entry-card';
     wrap.innerHTML = `
@@ -96,6 +105,7 @@ function renderView() {
           <span class="entry-title">${entry.title}</span>
           <span class="entry-hours">${entry.hours}h</span>
         </div>
+        ${authorHtml}
         <a href="${projectUrl}" class="entry-project-link">${entry.project}</a>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
       </div>

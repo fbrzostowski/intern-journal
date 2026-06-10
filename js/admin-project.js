@@ -13,6 +13,7 @@ const params      = new URLSearchParams(window.location.search);
 const projectName = params.get('name');
 let selectedUid   = params.get('uid') || null;
 let allEntries    = [];
+let usersMap      = new Map();
 
 async function init() {
   if (!projectName) { window.location.href = 'admin.html'; return; }
@@ -27,6 +28,7 @@ async function init() {
   document.title = `Admin — ${projectName}`;
 
   const users = await getAllUsers();
+  usersMap = new Map(users.map(u => [u.uid, u]));
   buildInternPicker(
     document.getElementById('intern-picker-wrap'),
     users, selectedUid,
@@ -73,6 +75,13 @@ function renderView() {
     const dateObj = new Date(entry.date + 'T12:00:00');
     const dateStr = dateObj.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
 
+    const author = usersMap.get(entry.uid);
+    const authorHtml = author ? `
+      <div class="entry-author">
+        ${author.photoURL ? `<img src="${author.photoURL}" class="entry-author-avatar" alt="">` : ''}
+        <span class="entry-author-name">${author.name ?? author.email}</span>
+      </div>` : '';
+
     const wrap = document.createElement('div');
     wrap.className = 'chart-wrap entry-card';
     wrap.innerHTML = `
@@ -81,6 +90,7 @@ function renderView() {
           <span class="entry-title">${entry.title}</span>
           <span class="entry-hours">${entry.hours}h</span>
         </div>
+        ${authorHtml}
         <span class="entry-date-link">${dateStr}</span>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
       </div>
