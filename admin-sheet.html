@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dzienniczek — Admin — Arkusz</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator_simple.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="admin.html" class="btn-back">← Wróć</a>
+      <div class="header-title-row">
+        <h1>Arkusz danych</h1>
+        <span class="admin-badge">Admin</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div id="intern-picker-wrap"></div>
+      <button id="btn-export-csv" class="btn-export">Eksportuj CSV</button>
+      <div class="header-user">
+        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <span id="user-name" class="user-name"></span>
+        <button id="btn-logout" class="btn-logout">Wyloguj</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="table-wrap" class="sheet-wrap"></div>
+
+  <script type="module" src="js/admin-sheet.js"></script>
+</body>
+</html>

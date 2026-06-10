@@ -420,6 +420,82 @@ header h1 { font-size: 18px; font-weight: 600; }
 }
 .btn-logout:hover { color: var(--text); }
 
+/* ── Arkusz (Tabulator overrides) ─────────────────────────────── */
+.sheet-wrap {
+  margin: 16px 24px 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.tabulator {
+  background: var(--surface);
+  border: none !important;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+}
+.tabulator .tabulator-header {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.tabulator .tabulator-header .tabulator-col {
+  background: transparent;
+  border-right: 1px solid var(--border) !important;
+}
+.tabulator .tabulator-header .tabulator-col-title { padding: 8px 10px; }
+.tabulator .tabulator-header .tabulator-header-filter input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 3px 7px;
+  margin: 3px 6px;
+  width: calc(100% - 12px);
+}
+.tabulator .tabulator-row {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-2) !important;
+  color: var(--text);
+}
+.tabulator .tabulator-row:nth-child(even) { background: var(--surface-2); }
+.tabulator .tabulator-row:hover { background: var(--accent-bg) !important; }
+.tabulator .tabulator-row .tabulator-cell {
+  border-right: 1px solid var(--border-2) !important;
+  padding: 7px 10px;
+}
+.tabulator .tabulator-footer {
+  background: var(--surface-2);
+  border-top: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.tabulator .tabulator-footer .tabulator-page {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-2);
+  padding: 3px 9px;
+  font-size: 12px;
+}
+.tabulator .tabulator-footer .tabulator-page.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.tabulator .tabulator-footer .tabulator-page:hover:not(.active):not([disabled]) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tabulator-col-sorter { color: var(--text-3); }
+
 /* ── Admin panel ───────────────────────────────────────────────── */
 .header-left {
   display: flex;
