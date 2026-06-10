@@ -1,7 +1,8 @@
 import { db } from "./config.js";
 import {
   collection, query, where, orderBy,
-  addDoc, updateDoc, doc, getDocs, onSnapshot, serverTimestamp,
+  addDoc, updateDoc, deleteDoc, doc, getDocs, writeBatch,
+  onSnapshot, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
 const CACHE_KEY = "dzienniczek_entries";
@@ -99,6 +100,21 @@ export async function updateEntry(entryId, data) {
     difficulty:  data.difficulty,
     mood:        data.mood,
   });
+}
+
+export async function updateUserRole(uid, role) {
+  await updateDoc(doc(db, "users", uid), { role });
+}
+
+export async function deleteUser(uid) {
+  const entriesSnap = await getDocs(
+    query(collection(db, "entries"), where("uid", "==", uid))
+  );
+  const batch = writeBatch(db);
+  entriesSnap.docs.forEach(d => batch.delete(d.ref));
+  batch.delete(doc(db, "users", uid));
+  await batch.commit();
+  clearCache();
 }
 
 export async function getAllUsers() {

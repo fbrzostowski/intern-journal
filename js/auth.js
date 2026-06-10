@@ -32,13 +32,13 @@ export async function getUserRole(user) {
   const snap = await getDoc(ref);
   if (!snap.exists()) {
     await setDoc(ref, {
-      role:      "intern",
+      role:      "setup",
       email:     user.email,
       name:      user.displayName,
       photoURL:  user.photoURL ?? null,
       createdAt: serverTimestamp(),
     });
-    return "intern";
+    return "setup";
   }
   const data = snap.data();
   if (data.photoURL !== user.photoURL) {
@@ -59,6 +59,10 @@ export function requireAuth(requiredRole = null) {
         return;
       }
       const role = await getUserRole(user);
+      if (role === "setup") {
+        window.location.href = "pending.html";
+        return;
+      }
       if (requiredRole && role !== requiredRole) {
         window.location.href = role === "admin" ? "admin.html" : "index.html";
         return;

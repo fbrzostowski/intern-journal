@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dzienniczek stażysty — Oczekiwanie</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <img src="icon.png" alt="Logo" class="login-logo-img">
+    <h1>Konto oczekuje zatwierdzenia</h1>
+    <p class="pending-info">
+      Twoje konto zostało zarejestrowane.<br>
+      Administrator musi przypisać Ci rolę zanim uzyskasz dostęp do aplikacji.
+    </p>
+    <p id="pending-email" class="pending-email"></p>
+    <button id="btn-logout" class="btn-google" style="margin-top:8px">Wyloguj się</button>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./js/config.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+    import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) { window.location.href = "login.html"; return; }
+
+      document.getElementById("pending-email").textContent = user.email;
+
+      onSnapshot(doc(db, "users", user.uid), (snap) => {
+        if (!snap.exists()) return;
+        const role = snap.data().role;
+        if (role === "intern") { window.location.href = "index.html"; return; }
+        if (role === "admin")  { window.location.href = "admin.html"; return; }
+      });
+    });
+
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "login.html";
+    });
+  </script>
+</body>
+</html>

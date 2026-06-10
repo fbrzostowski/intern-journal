@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dzienniczek — Panel Sterowania</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="admin.html" class="btn-back">← Wróć</a>
+      <div class="header-title-row">
+        <h1>Panel Sterowania</h1>
+        <span class="admin-badge">Admin</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="header-user">
+        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <span id="user-name" class="user-name"></span>
+        <button id="btn-logout" class="btn-logout">Wyloguj</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="control-wrap">
+    <h2 class="section-title">Użytkownicy</h2>
+    <div id="user-list" class="user-list">
+      <p class="status">Ładowanie…</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/admin-control.js"></script>
+</body>
+</html>
