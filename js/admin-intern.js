@@ -13,6 +13,7 @@ const params      = new URLSearchParams(window.location.search);
 let selectedUid   = params.get('uid') || null;
 let allEntries    = [];
 let usersMap      = new Map();
+let activePeriod  = 'all';
 
 async function init() {
   if (!selectedUid) { window.location.href = 'admin.html'; return; }
@@ -42,10 +43,39 @@ async function init() {
   updateBackLink();
   renderInternName();
 
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activePeriod = btn.dataset.period;
+      updatePeriodBtns();
+      renderView();
+    });
+  });
+  updatePeriodBtns();
+
   subscribeAllEntries((entries) => {
     allEntries = entries;
     renderView();
   });
+}
+
+function updatePeriodBtns() {
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.classList.toggle('period-btn--active', btn.dataset.period === activePeriod);
+  });
+}
+
+function periodStart() {
+  const now = new Date();
+  if (activePeriod === 'week') {
+    const d = new Date(now);
+    d.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  if (activePeriod === 'month') {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  return null;
 }
 
 function updateBackLink() {
@@ -69,9 +99,10 @@ function renderInternName() {
 }
 
 function renderView() {
-  const entries = selectedUid
-    ? allEntries.filter(e => e.uid === selectedUid)
-    : allEntries;
+  const start = periodStart();
+  const entries = allEntries
+    .filter(e => !selectedUid || e.uid === selectedUid)
+    .filter(e => !start || e.timestamp >= start);
 
   if (!entries.length) {
     document.getElementById('status').textContent = 'Brak wpisów.';

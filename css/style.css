@@ -464,6 +464,31 @@ header h1 { font-size: 18px; font-weight: 600; }
   flex-shrink: 0;
 }
 
+.period-bar {
+  display: flex;
+  gap: 6px;
+  padding: 12px 24px 0;
+}
+
+.period-btn {
+  height: 30px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.period-btn:hover { border-color: var(--accent); color: var(--accent); }
+.period-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .entry-meta-row {
   display: flex;
   align-items: center;
