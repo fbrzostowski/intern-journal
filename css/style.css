@@ -762,7 +762,8 @@ header h1 { font-size: 18px; font-weight: 600; }
   transition: border-color .15s, box-shadow .15s;
 }
 
-.task-card--own:hover {
+.task-card--own:hover,
+.task-card--admin:hover {
   border-color: var(--accent);
   box-shadow: 0 2px 8px rgba(83,74,183,.12);
 }
@@ -849,46 +850,13 @@ header h1 { font-size: 18px; font-weight: 600; }
   .btn-mark-done:hover { background: #d97706; color: white; }
 }
 
-/* ── Tasks review list (admin-project) ────────────────────────── */
+/* ── Tasks list (admin-project) ────────────────────────────────── */
 .admin-tasks-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  padding: 20px 24px;
+  max-width: 900px;
+  margin: 0 auto;
 }
 
-.admin-task-section {
-  border-bottom: 1px solid var(--border);
-}
-.admin-task-section:last-child { border-bottom: none; }
-
-.admin-task-header {
-  padding: 16px 24px 12px;
-  background: var(--surface);
-}
-
-.admin-task-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.admin-task-entries {
-  background: var(--bg);
-}
-
-.admin-entries-grid {
-  padding: 16px 24px;
-  border-top: 1px solid var(--border);
-}
-
-.admin-task-no-entries {
-  padding: 12px 24px;
-  font-size: 13px;
-  color: var(--text-3);
-  border-top: 1px solid var(--border);
-}
 
 .btn-approve-task {
   padding: 5px 12px !important;
