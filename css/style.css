@@ -260,11 +260,17 @@ header h1 { font-size: 18px; font-weight: 600; }
 }
 .entry-project-link:hover { background: var(--accent); color: white; border-color: var(--accent); }
 
+.entry-author-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 6px;
+}
 .entry-author {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-bottom: 5px;
 }
 .entry-author-avatar {
   width: 18px;

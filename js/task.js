@@ -183,11 +183,13 @@ function renderEntries(entries, user, access, usersMap = new Map()) {
             ` : ""}
           </div>
         </div>
-        <div class="entry-author">
-          ${authorAvatar}
-          <span class="entry-author-name">${authorName}</span>
+        <div class="entry-author-block">
+          <div class="entry-author">
+            ${authorAvatar}
+            <span class="entry-author-name">${authorName}</span>
+          </div>
+          <a href="day.html?date=${entry.date}" class="entry-date-link">${dateStr}</a>
         </div>
-        <a href="day.html?date=${entry.date}" class="entry-date-link">${dateStr}</a>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ""}
       </div>
       <div class="entry-canvas-wrap">

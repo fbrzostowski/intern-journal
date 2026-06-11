@@ -75,11 +75,13 @@ async function init() {
               </button>
             </div>
           </div>
-          <div class="entry-author">
-            ${authorAvatar}
-            <span class="entry-author-name">${authorName}</span>
+          <div class="entry-author-block">
+            <div class="entry-author">
+              ${authorAvatar}
+              <span class="entry-author-name">${authorName}</span>
+            </div>
+            <a href="${taskUrl}" class="entry-project-link">${entry.taskTitle || entry.projectName}</a>
           </div>
-          <a href="${taskUrl}" class="entry-project-link">${entry.taskTitle || entry.projectName}</a>
           ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
         </div>
         <div class="entry-canvas-wrap">
