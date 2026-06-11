@@ -16,6 +16,10 @@ async function init() {
   if (!name) { window.location.href = 'index.html'; return; }
 
   const { user } = await requireAuth();
+  document.getElementById("user-name").textContent = user.displayName ?? user.email;
+  const avatar = document.getElementById("user-avatar");
+  if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
+
   setupEditModal();
   setupAddModal(user.uid);
   document.getElementById("btn-add-entry").addEventListener("click", () => openAddModal({ project: name }));
