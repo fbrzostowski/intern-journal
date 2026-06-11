@@ -1,6 +1,7 @@
 import { requireAuth, logout } from "./auth.js";
 import { subscribeAllEntries, subscribeProjectTasks, getAllUsers, updateTaskStatus } from "./store.js";
 import { buildInternPicker } from "./intern-picker.js";
+import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
 
 const STATUS_MAP = {
   todo:      { label: "Nie zrobione",   cls: "status-todo" },
@@ -34,6 +35,11 @@ async function init() {
     document.getElementById('intern-picker-wrap'),
     users, selectedUid,
     (uid) => { selectedUid = uid; updateBackLink(); renderAll(); }
+  );
+
+  setupAddTaskModal(user.uid, { allUsers: users });
+  document.getElementById('btn-add-task').addEventListener('click', () =>
+    openAddTaskModal(projectName, { defaultUid: selectedUid })
   );
 
   updateBackLink();
