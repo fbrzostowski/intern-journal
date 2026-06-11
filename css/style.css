@@ -927,6 +927,42 @@ header h1 { font-size: 18px; font-weight: 600; }
   max-width: 500px;
   width: 100%;
 }
+.task-modal-admin {
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.task-members-setup {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+.task-members-setup .members-section-label {
+  margin-bottom: 8px;
+}
+.add-member-inline {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 8px;
+}
+.add-member-select {
+  flex: 1;
+  min-width: 120px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+}
+.add-member-select:focus { border-color: var(--accent); }
 
 .entry-form-box h2 {
   font-size: 18px;
