@@ -46,6 +46,7 @@ export function setupAddTaskModal(userUid) {
         projectName:  projectCtx,
         title:        document.getElementById("tf-title").value.trim(),
         description:  document.getElementById("tf-desc").value.trim(),
+        status:       "todo",
       });
       closeModal();
     } catch (error) {

@@ -1,7 +1,13 @@
 import { requireAuth } from "./auth.js";
-import { subscribeTaskEntries, chartGridColor } from "./store.js";
+import { subscribeTaskEntries, subscribeTask, updateTaskStatus, chartGridColor } from "./store.js";
 import { setupEditModal, openEditModal } from "./edit-modal.js";
 import { setupAddModal, openAddModal } from "./add-entry-modal.js";
+
+const STATUS_MAP = {
+  todo:      { label: "Nie zrobione",   cls: "status-todo" },
+  reviewing: { label: "Do sprawdzenia", cls: "status-reviewing" },
+  done:      { label: "Wykonane",       cls: "status-done" },
+};
 
 const CATEGORIES = [
   { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
@@ -40,6 +46,40 @@ async function init() {
   const btnAdd = document.getElementById("btn-add-entry");
   btnAdd.style.display = "";
   btnAdd.addEventListener("click", () => openAddModal({ taskId, taskTitle, projectName }));
+
+  // Live status zadania
+  subscribeTask(taskId, (task) => {
+    if (!task) return;
+    const status = task.status || "todo";
+    const s = STATUS_MAP[status] ?? STATUS_MAP.todo;
+
+    let badge = document.getElementById("task-status-badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.id = "task-status-badge";
+      badge.className = "task-status-badge";
+      document.getElementById("task-title").after(badge);
+    }
+    badge.textContent  = s.label;
+    badge.className    = `task-status-badge ${s.cls}`;
+
+    let btnDone = document.getElementById("btn-mark-done");
+    if (status === "todo") {
+      if (!btnDone) {
+        btnDone = document.createElement("button");
+        btnDone.id        = "btn-mark-done";
+        btnDone.className = "btn-mark-done";
+        btnDone.textContent = "Oznacz jako skończone";
+        document.getElementById("btn-add-entry").insertAdjacentElement("beforebegin", btnDone);
+        btnDone.addEventListener("click", async () => {
+          btnDone.disabled = true;
+          await updateTaskStatus(taskId, "reviewing");
+        });
+      }
+    } else {
+      btnDone?.remove();
+    }
+  });
 
   subscribeTaskEntries(taskId, (entries) => {
     if (!entries.length) {

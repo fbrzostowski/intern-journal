@@ -102,6 +102,7 @@ async function init() {
       <div class="task-card-header">
         <span class="task-name">${task.title}</span>
         <div class="task-card-actions">
+          ${statusBadge(task.status)}
           <span class="task-hours">${hoursStr}</span>
           <button class="btn-delete-task" title="Usuń zadanie" type="button">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -140,10 +141,13 @@ async function init() {
     div.innerHTML = `
       <div class="task-card-header">
         <span class="task-name">${task.title}</span>
-        <svg class="task-lock-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
+        <div class="task-card-actions">
+          ${statusBadge(task.status)}
+          <svg class="task-lock-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
       </div>
       ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
       <div class="task-owner">
@@ -153,6 +157,16 @@ async function init() {
     `;
     return div;
   }
+}
+
+function statusBadge(status) {
+  const map = {
+    todo:       { label: "Nie zrobione",   cls: "status-todo" },
+    reviewing:  { label: "Do sprawdzenia", cls: "status-reviewing" },
+    done:       { label: "Wykonane",       cls: "status-done" },
+  };
+  const s = map[status] ?? map.todo;
+  return `<span class="task-status-badge ${s.cls}">${s.label}</span>`;
 }
 
 init();

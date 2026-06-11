@@ -152,6 +152,7 @@ export async function addTask(uid, data) {
     projectName:  data.projectName,
     title:        data.title,
     description:  data.description || "",
+    status:       data.status || "todo",
     createdAt:    serverTimestamp(),
   });
 }
@@ -194,6 +195,26 @@ export function subscribeProjectTasks(projectName, callback) {
     });
     callback(tasks);
   });
+}
+
+export function subscribeTask(taskId, callback) {
+  return onSnapshot(doc(db, "tasks", taskId), (snap) => {
+    if (!snap.exists()) { callback(null); return; }
+    const data = snap.data();
+    callback({
+      id:          snap.id,
+      uid:         data.uid,
+      projectName: data.projectName || "",
+      title:       data.title       || "",
+      description: data.description || "",
+      status:      data.status      || "todo",
+      createdAt:   data.createdAt?.toDate() ?? new Date(),
+    });
+  });
+}
+
+export async function updateTaskStatus(taskId, status) {
+  await updateDoc(doc(db, "tasks", taskId), { status });
 }
 
 export function subscribeAllProjectNames(callback) {

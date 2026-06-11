@@ -1,5 +1,5 @@
 import { requireAuth, logout } from "./auth.js";
-import { subscribeAllEntries, getAllUsers, chartGridColor } from "./store.js";
+import { subscribeAllEntries, subscribeProjectTasks, getAllUsers, updateTaskStatus, chartGridColor } from "./store.js";
 import { buildInternPicker } from "./intern-picker.js";
 
 const CATEGORIES = [
@@ -9,10 +9,17 @@ const CATEGORIES = [
   { key: 'mood',       label: 'Samopoczucie', color: '#B8860B' },
 ];
 
+const STATUS_MAP = {
+  todo:      { label: "Nie zrobione",   cls: "status-todo" },
+  reviewing: { label: "Do sprawdzenia", cls: "status-reviewing" },
+  done:      { label: "Wykonane",       cls: "status-done" },
+};
+
 const params      = new URLSearchParams(window.location.search);
 const projectName = params.get('name');
 let selectedUid   = params.get('uid') || null;
 let allEntries    = [];
+let allTasks      = [];
 let usersMap      = new Map();
 let activePeriod  = 'all';
 
@@ -50,6 +57,11 @@ async function init() {
   subscribeAllEntries((entries) => {
     allEntries = entries;
     renderView();
+  });
+
+  subscribeProjectTasks(projectName, (tasks) => {
+    allTasks = tasks;
+    renderTasks();
   });
 }
 
@@ -154,6 +166,47 @@ function renderView() {
         plugins: { legend: { display: false } },
       },
     });
+  });
+}
+
+function renderTasks() {
+  const section = document.getElementById("tasks-review-section");
+  const list    = document.getElementById("tasks-review-list");
+  if (!allTasks.length) { section.style.display = "none"; return; }
+  section.style.display = "";
+  list.innerHTML = "";
+
+  allTasks.forEach(task => {
+    const owner  = usersMap.get(task.uid);
+    const name   = owner ? (owner.displayName || owner.name || owner.email || "Stażysta") : "Stażysta";
+    const s      = STATUS_MAP[task.status] ?? STATUS_MAP.todo;
+    const canApprove = task.status === "reviewing";
+
+    const card = document.createElement("div");
+    card.className = "task-review-card";
+    card.innerHTML = `
+      <div class="task-review-header">
+        <span class="task-name">${task.title}</span>
+        <div class="task-card-actions">
+          <span class="task-status-badge ${s.cls}">${s.label}</span>
+          ${canApprove ? `<button class="btn-approve-task btn-add" data-id="${task.id}">Zatwierdź ✓</button>` : ""}
+        </div>
+      </div>
+      ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
+      <div class="task-owner">
+        ${owner?.photoURL ? `<img src="${owner.photoURL}" class="task-owner-avatar" referrerpolicy="no-referrer" alt="">` : `<span class="task-owner-initials">${name[0].toUpperCase()}</span>`}
+        <span class="task-owner-name">${name}</span>
+      </div>
+    `;
+
+    if (canApprove) {
+      card.querySelector(".btn-approve-task").addEventListener("click", async (e) => {
+        e.target.disabled = true;
+        await updateTaskStatus(task.id, "done");
+      });
+    }
+
+    list.appendChild(card);
   });
 }
 

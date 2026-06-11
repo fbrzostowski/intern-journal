@@ -773,6 +773,73 @@ header h1 { font-size: 18px; font-weight: 600; }
 
 .task-lock-icon { color: var(--text-3); flex-shrink: 0; }
 
+/* ── Status badges ────────────────────────────────────────────── */
+.task-status-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.status-todo      { background: #fee2e2; color: #dc2626; }
+.status-reviewing { background: #fef3c7; color: #d97706; }
+.status-done      { background: #d1fae5; color: #059669; }
+
+@media (prefers-color-scheme: dark) {
+  .status-todo      { background: #450a0a; color: #f87171; }
+  .status-reviewing { background: #451a03; color: #fbbf24; }
+  .status-done      { background: #052e16; color: #34d399; }
+}
+
+/* ── Btn mark done (task view) ───────────────────────────────── */
+.btn-mark-done {
+  padding: 7px 14px;
+  border: 1px solid #d97706;
+  border-radius: 8px;
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.btn-mark-done:hover { background: #d97706; color: white; }
+.btn-mark-done:disabled { opacity: .5; cursor: default; }
+
+@media (prefers-color-scheme: dark) {
+  .btn-mark-done { background: #451a03; border-color: #fbbf24; color: #fbbf24; }
+  .btn-mark-done:hover { background: #d97706; color: white; }
+}
+
+/* ── Tasks review list (admin-project) ────────────────────────── */
+.tasks-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 24px 24px;
+}
+
+.task-review-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.task-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.btn-approve-task {
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+}
+
 .task-owner {
   display: flex;
   align-items: center;
