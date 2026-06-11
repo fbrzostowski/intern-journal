@@ -26,14 +26,14 @@ async function init() {
     users.forEach(u => usersMap.set(u.uid, u));
   } catch (_) {}
 
-  // Wpisy zalogowanego — do liczenia godzin własnych zadań
   let myEntries = [];
+  let tasks     = [];
+
   subscribeUserEntries(user.uid, (entries) => {
     myEntries = entries;
     render(tasks, myEntries);
   });
 
-  let tasks = [];
   subscribeProjectTasks(name, (allTasks) => {
     tasks = allTasks;
     render(tasks, myEntries);
