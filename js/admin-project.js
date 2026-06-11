@@ -22,6 +22,7 @@ let allEntries    = [];
 let allTasks      = [];
 let usersMap      = new Map();
 let activePeriod  = 'all';
+let chartInstances = {};
 
 async function init() {
   if (!projectName) { window.location.href = 'admin.html'; return; }
@@ -40,7 +41,7 @@ async function init() {
   buildInternPicker(
     document.getElementById('intern-picker-wrap'),
     users, selectedUid,
-    (uid) => { selectedUid = uid; updateBackLink(); renderView(); }
+    (uid) => { selectedUid = uid; updateBackLink(); renderAll(); }
   );
 
   updateBackLink();
@@ -49,19 +50,19 @@ async function init() {
     btn.addEventListener('click', () => {
       activePeriod = btn.dataset.period;
       updatePeriodBtns();
-      renderView();
+      renderAll();
     });
   });
   updatePeriodBtns();
 
   subscribeAllEntries((entries) => {
     allEntries = entries;
-    renderView();
+    renderAll();
   });
 
   subscribeProjectTasks(projectName, (tasks) => {
     allTasks = tasks;
-    renderTasks();
+    renderAll();
   });
 }
 
@@ -85,46 +86,115 @@ function periodStart() {
   return null;
 }
 
-
 function updateBackLink() {
-  const back = document.getElementById('btn-back');
-  back.href = selectedUid ? `admin.html?uid=${selectedUid}` : 'admin.html';
+  document.getElementById('btn-back').href = selectedUid ? `admin.html?uid=${selectedUid}` : 'admin.html';
 }
 
-function renderView() {
+function renderAll() {
   const start = periodStart();
-  const entries = allEntries
-    .filter(e => e.project === projectName)
+  const filtered = allEntries
+    .filter(e => (e.projectName || e.project) === projectName)
     .filter(e => !selectedUid || e.uid === selectedUid)
     .filter(e => !start || e.timestamp >= start);
 
   document.getElementById('project-title').textContent = projectName;
 
-  if (!entries.length) {
-    document.getElementById('status').textContent = 'Brak wpisów dla tego projektu.';
-    document.getElementById('total-hours').textContent = '';
-    document.getElementById('charts-grid').innerHTML = '';
+  const total = filtered.reduce((s, e) => s + e.hours, 0);
+  document.getElementById('total-hours').textContent = filtered.length
+    ? `${Math.round(total * 10) / 10}h łącznie · ${filtered.length} wpisów`
+    : '';
+
+  // Destroy old charts to avoid canvas reuse errors
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+
+  const container = document.getElementById('tasks-container');
+  container.innerHTML = '';
+
+  if (!allTasks.length) {
+    container.innerHTML = '<p class="status">Brak zadań w tym projekcie.</p>';
     return;
   }
 
-  document.getElementById('status').textContent = '';
-  const total = entries.reduce((s, e) => s + e.hours, 0);
-  document.getElementById('total-hours').textContent =
-    `${Math.round(total * 10) / 10}h łącznie · ${entries.length} wpisów`;
+  // Group entries by taskId
+  const byTask = {};
+  filtered.forEach(e => {
+    if (!e.taskId) return;
+    if (!byTask[e.taskId]) byTask[e.taskId] = [];
+    byTask[e.taskId].push(e);
+  });
 
-  const grid = document.getElementById('charts-grid');
-  grid.innerHTML = '';
+  allTasks.forEach(task => {
+    const entries = byTask[task.id] || [];
+    container.appendChild(buildTaskSection(task, entries));
+  });
+}
 
-  entries.forEach((entry, i) => {
+function buildTaskSection(task, entries) {
+  const owner     = usersMap.get(task.uid);
+  const ownerName = owner ? (owner.displayName || owner.name || owner.email || 'Stażysta') : 'Stażysta';
+  const s         = STATUS_MAP[task.status] ?? STATUS_MAP.todo;
+  const canApprove = task.status === 'reviewing';
+  const taskHours  = entries.reduce((sum, e) => sum + e.hours, 0);
+
+  const section = document.createElement('div');
+  section.className = 'admin-task-section';
+
+  const ownerAvatar = owner?.photoURL
+    ? `<img src="${owner.photoURL}" class="task-owner-avatar" referrerpolicy="no-referrer" alt="">`
+    : `<span class="task-owner-initials">${ownerName[0].toUpperCase()}</span>`;
+
+  section.innerHTML = `
+    <div class="admin-task-header">
+      <div class="admin-task-title-row">
+        <span class="task-name">${task.title}</span>
+        <div class="task-card-actions">
+          <span class="task-status-badge ${s.cls}">${s.label}</span>
+          ${taskHours ? `<span class="task-hours">${Math.round(taskHours * 10) / 10}h</span>` : ''}
+          ${canApprove ? `<button class="btn-approve-task btn-add">Zatwierdź ✓</button>` : ''}
+        </div>
+      </div>
+      ${task.description ? `<p class="task-desc">${task.description}</p>` : ''}
+      <div class="task-owner">
+        ${ownerAvatar}
+        <span class="task-owner-name">${ownerName}</span>
+      </div>
+    </div>
+    <div class="admin-task-entries"></div>
+  `;
+
+  if (canApprove) {
+    section.querySelector('.btn-approve-task').addEventListener('click', async (e) => {
+      e.target.disabled = true;
+      await updateTaskStatus(task.id, 'done');
+    });
+  }
+
+  const entriesEl = section.querySelector('.admin-task-entries');
+  if (!entries.length) {
+    entriesEl.innerHTML = '<p class="admin-task-no-entries">Brak wpisów w wybranym okresie.</p>';
+  } else {
+    renderEntriesGrid(entriesEl, entries);
+  }
+
+  return section;
+}
+
+function renderEntriesGrid(container, entries) {
+  const grid = document.createElement('div');
+  grid.className = 'charts-grid admin-entries-grid';
+  container.appendChild(grid);
+
+  entries.forEach((entry) => {
+    const author  = usersMap.get(entry.uid);
+    const authorName = author ? (author.displayName || author.name || author.email || 'Stażysta') : 'Stażysta';
+    const authorAvatar = author?.photoURL
+      ? `<img src="${author.photoURL}" class="entry-author-avatar" referrerpolicy="no-referrer" alt="">`
+      : `<div class="entry-author-initials">${authorName[0].toUpperCase()}</div>`;
+
     const dateObj = new Date(entry.date + 'T12:00:00');
     const dateStr = dateObj.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    const author = usersMap.get(entry.uid);
-    const authorHtml = author ? `
-      <a href="admin-intern.html?uid=${entry.uid}" class="entry-author">
-        ${author.photoURL ? `<img src="${author.photoURL}" class="entry-author-avatar" alt="">` : ''}
-        <span class="entry-author-name">${author.name ?? author.email}</span>
-      </a>` : '';
+    const canvasId = `chart-${entry.id}`;
 
     const wrap = document.createElement('div');
     wrap.className = 'chart-wrap entry-card';
@@ -134,17 +204,22 @@ function renderView() {
           <span class="entry-title">${entry.title}</span>
           <span class="entry-hours">${entry.hours}h</span>
         </div>
-        ${authorHtml}
-        <a href="admin-day.html?date=${entry.date}${selectedUid ? `&uid=${selectedUid}` : ''}" class="entry-date-link">${dateStr}</a>
+        <div class="entry-author-block">
+          <div class="entry-author">
+            ${authorAvatar}
+            <span class="entry-author-name">${authorName}</span>
+          </div>
+          <a href="admin-day.html?date=${entry.date}${selectedUid ? `&uid=${selectedUid}` : ''}" class="entry-date-link">${dateStr}</a>
+        </div>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
       </div>
       <div class="entry-canvas-wrap">
-        <canvas id="chart-entry-${i}"></canvas>
+        <canvas id="${canvasId}"></canvas>
       </div>
     `;
     grid.appendChild(wrap);
 
-    new Chart(document.getElementById(`chart-entry-${i}`).getContext('2d'), {
+    chartInstances[entry.id] = new Chart(document.getElementById(canvasId).getContext('2d'), {
       type: 'bar',
       data: {
         labels:   CATEGORIES.map(c => c.label),
@@ -166,47 +241,6 @@ function renderView() {
         plugins: { legend: { display: false } },
       },
     });
-  });
-}
-
-function renderTasks() {
-  const section = document.getElementById("tasks-review-section");
-  const list    = document.getElementById("tasks-review-list");
-  if (!allTasks.length) { section.style.display = "none"; return; }
-  section.style.display = "";
-  list.innerHTML = "";
-
-  allTasks.forEach(task => {
-    const owner  = usersMap.get(task.uid);
-    const name   = owner ? (owner.displayName || owner.name || owner.email || "Stażysta") : "Stażysta";
-    const s      = STATUS_MAP[task.status] ?? STATUS_MAP.todo;
-    const canApprove = task.status === "reviewing";
-
-    const card = document.createElement("div");
-    card.className = "task-review-card";
-    card.innerHTML = `
-      <div class="task-review-header">
-        <span class="task-name">${task.title}</span>
-        <div class="task-card-actions">
-          <span class="task-status-badge ${s.cls}">${s.label}</span>
-          ${canApprove ? `<button class="btn-approve-task btn-add" data-id="${task.id}">Zatwierdź ✓</button>` : ""}
-        </div>
-      </div>
-      ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
-      <div class="task-owner">
-        ${owner?.photoURL ? `<img src="${owner.photoURL}" class="task-owner-avatar" referrerpolicy="no-referrer" alt="">` : `<span class="task-owner-initials">${name[0].toUpperCase()}</span>`}
-        <span class="task-owner-name">${name}</span>
-      </div>
-    `;
-
-    if (canApprove) {
-      card.querySelector(".btn-approve-task").addEventListener("click", async (e) => {
-        e.target.disabled = true;
-        await updateTaskStatus(task.id, "done");
-      });
-    }
-
-    list.appendChild(card);
   });
 }
 
