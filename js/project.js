@@ -1,101 +1,172 @@
 import { requireAuth } from "./auth.js";
-import { subscribeUserEntries, chartGridColor } from "./store.js";
-import { setupEditModal, openEditModal } from "./edit-modal.js";
-import { setupAddModal, openAddModal } from "./add-entry-modal.js";
-
-const CATEGORIES = [
-  { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
-  { key: 'learning',   label: 'Nauka',        color: '#0F6E56' },
-  { key: 'difficulty', label: 'Trudność',     color: '#993C1D' },
-  { key: 'mood',       label: 'Samopoczucie', color: '#B8860B' },
-];
+import { subscribeProjectTasks, subscribeUserEntries, getAllUsers, deleteTask } from "./store.js";
+import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
-  const name   = params.get('name');
-  if (!name) { window.location.href = 'index.html'; return; }
+  const name   = params.get("name");
+  if (!name) { window.location.href = "index.html"; return; }
 
   const { user } = await requireAuth();
+
   document.getElementById("user-name").textContent = user.displayName ?? user.email;
   const avatar = document.getElementById("user-avatar");
   if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
 
-  setupEditModal();
-  setupAddModal(user.uid);
-  document.getElementById("btn-add-entry").addEventListener("click", () => openAddModal({ project: name }));
-
   document.title = `Projekt: ${name}`;
+  document.getElementById("project-title").textContent = name;
 
-  subscribeUserEntries(user.uid, (allEntries) => {
-    const projectEntries = allEntries.filter(e => e.project === name);
+  setupAddTaskModal(user.uid);
+  document.getElementById("btn-add-task").addEventListener("click", () => openAddTaskModal(name));
 
-    if (!projectEntries.length) {
-      document.getElementById('project-title').textContent = 'Brak wpisów dla tego projektu';
+  // Pobierz mapę uid→user raz
+  const usersMap = new Map();
+  try {
+    const users = await getAllUsers();
+    users.forEach(u => usersMap.set(u.uid, u));
+  } catch (_) {}
+
+  let myEntries = [];
+  let tasks     = [];
+
+  subscribeUserEntries(user.uid, (entries) => {
+    myEntries = entries;
+    render(tasks, myEntries);
+  });
+
+  subscribeProjectTasks(name, (allTasks) => {
+    tasks = allTasks;
+    render(tasks, myEntries);
+  });
+
+  function render(allTasks, userEntries) {
+    const list   = document.getElementById("tasks-list");
+    const empty  = document.getElementById("tasks-empty");
+    const totalEl = document.getElementById("total-hours");
+
+    if (!allTasks.length) {
+      list.innerHTML = "";
+      empty.style.display = "";
+      totalEl.textContent = "";
       return;
     }
+    empty.style.display = "none";
 
-    document.getElementById('project-title').textContent = name;
-    const total = projectEntries.reduce((s, e) => s + e.hours, 0);
-    document.getElementById('total-hours').textContent =
-      `${Math.round(total * 10) / 10}h łącznie · ${projectEntries.length} wpisów`;
+    // Sumaryczne godziny własnych wpisów w tym projekcie
+    const myProjectHours = userEntries
+      .filter(e => e.projectName === name)
+      .reduce((s, e) => s + e.hours, 0);
+    totalEl.textContent = myProjectHours
+      ? `${Math.round(myProjectHours * 10) / 10}h Twoich godzin`
+      : "";
 
-    const grid = document.getElementById('charts-grid');
-    grid.innerHTML = '';
-
-    projectEntries.forEach((entry, i) => {
-      const dateObj = new Date(entry.date + 'T12:00:00');
-      const dateStr = dateObj.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
-
-      const wrap = document.createElement('div');
-      wrap.className = 'chart-wrap entry-card';
-      wrap.innerHTML = `
-        <div class="entry-info">
-          <div class="entry-header">
-            <span class="entry-title">${entry.title}</span>
-            <div class="entry-header-right">
-              <span class="entry-hours">${entry.hours}h</span>
-              <button class="btn-edit-entry" title="Edytuj wpis">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <a href="day.html?date=${entry.date}" class="entry-date-link">${dateStr}</a>
-          ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
-        </div>
-        <div class="entry-canvas-wrap">
-          <canvas id="chart-entry-${i}"></canvas>
-        </div>
-      `;
-      wrap.querySelector('.btn-edit-entry').addEventListener('click', () => openEditModal(entry));
-      grid.appendChild(wrap);
-
-      new Chart(document.getElementById(`chart-entry-${i}`).getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels:   CATEGORIES.map(c => c.label),
-          datasets: [{
-            data:            CATEGORIES.map(c => entry.ratings[c.key]),
-            backgroundColor: CATEGORIES.map(c => c.color + 'bb'),
-            borderColor:     CATEGORIES.map(c => c.color),
-            borderWidth: 1.5,
-            borderRadius: 6,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: chartGridColor() } },
-            x: { ticks: { color: '#333', font: { size: 12, weight: '500' } }, grid: { display: false } }
-          },
-          plugins: { legend: { display: false } }
-        }
-      });
+    // Mapa taskId → godziny z wpisów zalogowanego
+    const hoursByTask = {};
+    userEntries.forEach(e => {
+      if (!e.taskId) return;
+      hoursByTask[e.taskId] = (hoursByTask[e.taskId] || 0) + e.hours;
     });
-  });
+
+    list.innerHTML = "";
+
+    // Własne zadania najpierw, potem cudze
+    const ownTasks   = allTasks.filter(t => t.uid === user.uid);
+    const otherTasks = allTasks.filter(t => t.uid !== user.uid);
+
+    if (ownTasks.length) {
+      const section = document.createElement("div");
+      section.className = "tasks-group";
+      section.innerHTML = `<h3 class="tasks-group-label">Twoje zadania</h3>`;
+      ownTasks.forEach(task => section.appendChild(buildOwnCard(task, hoursByTask)));
+      list.appendChild(section);
+    }
+
+    if (otherTasks.length) {
+      const section = document.createElement("div");
+      section.className = "tasks-group";
+      section.innerHTML = `<h3 class="tasks-group-label">Zadania innych</h3>`;
+      otherTasks.forEach(task => section.appendChild(buildOtherCard(task, usersMap)));
+      list.appendChild(section);
+    }
+  }
+
+  function buildOwnCard(task, hoursByTask) {
+    const hours    = hoursByTask[task.id] || 0;
+    const hoursStr = hours ? `${Math.round(hours * 10) / 10}h` : "0h";
+    const taskUrl  = `task.html?id=${task.id}&title=${encodeURIComponent(task.title)}&project=${encodeURIComponent(name)}&owner=${user.uid}`;
+
+    const a = document.createElement("a");
+    a.href      = taskUrl;
+    a.className = "task-card task-card--own";
+    a.innerHTML = `
+      <div class="task-card-header">
+        <span class="task-name">${task.title}</span>
+        <div class="task-card-actions">
+          ${statusBadge(task.status)}
+          <span class="task-hours">${hoursStr}</span>
+          <button class="btn-delete-task" title="Usuń zadanie" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
+    `;
+
+    a.querySelector(".btn-delete-task").addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!confirm(`Usunąć zadanie „${task.title}" wraz ze wszystkimi wpisami?`)) return;
+      try {
+        await deleteTask(task.id);
+      } catch (err) {
+        alert("Błąd usuwania: " + err.message);
+      }
+    });
+
+    return a;
+  }
+
+  function buildOtherCard(task, usersMap) {
+    const owner    = usersMap.get(task.uid);
+    const ownerName = owner ? (owner.displayName || owner.name || owner.email || "Stażysta") : "Stażysta";
+    const ownerAvatar = owner?.photoURL
+      ? `<img src="${owner.photoURL}" class="task-owner-avatar" alt="">`
+      : `<span class="task-owner-initials">${ownerName[0].toUpperCase()}</span>`;
+
+    const div = document.createElement("div");
+    div.className = "task-card task-card--locked";
+    div.innerHTML = `
+      <div class="task-card-header">
+        <span class="task-name">${task.title}</span>
+        <div class="task-card-actions">
+          ${statusBadge(task.status)}
+          <svg class="task-lock-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+      </div>
+      ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
+      <div class="task-owner">
+        ${ownerAvatar}
+        <span class="task-owner-name">${ownerName}</span>
+      </div>
+    `;
+    return div;
+  }
+}
+
+function statusBadge(status) {
+  const map = {
+    todo:       { label: "Nie zrobione",   cls: "status-todo" },
+    reviewing:  { label: "Do sprawdzenia", cls: "status-reviewing" },
+    done:       { label: "Wykonane",       cls: "status-done" },
+  };
+  const s = map[status] ?? map.todo;
+  return `<span class="task-status-badge ${s.cls}">${s.label}</span>`;
 }
 
 init();

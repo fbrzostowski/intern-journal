@@ -3,8 +3,9 @@ import { addEntry } from "./store.js";
 const SLIDERS = ["interest", "learning", "difficulty", "mood"];
 const SLIDER_LABELS = { interest: "Ciekawość", learning: "Nauka", difficulty: "Trudność", mood: "Samopoczucie" };
 
-let modal = null;
-let uid   = null;
+let modal   = null;
+let uid     = null;
+let taskCtx = {};
 
 export function setupAddModal(userUid) {
   uid   = userUid;
@@ -16,14 +17,14 @@ export function setupAddModal(userUid) {
       <h2>Nowy wpis</h2>
       <form id="add-form" novalidate>
         <div class="form-group">
-          <label for="af-title">Tytuł zadania *</label>
-          <input type="text" id="af-title" required placeholder="Np. Analiza wymagań">
+          <label for="af-title">Tytuł wpisu *</label>
+          <input type="text" id="af-title" required placeholder="Np. Implementacja endpointu">
         </div>
         <div class="form-group">
           <label for="af-desc">Opis</label>
           <textarea id="af-desc" rows="3" placeholder="Co robiłeś/aś?"></textarea>
         </div>
-        <div class="form-row form-row-3">
+        <div class="form-row">
           <div class="form-group">
             <label for="af-date">Data *</label>
             <input type="date" id="af-date" required>
@@ -31,10 +32,6 @@ export function setupAddModal(userUid) {
           <div class="form-group">
             <label for="af-hours">Godziny *</label>
             <input type="number" id="af-hours" min="0.25" max="24" step="0.25" required placeholder="2">
-          </div>
-          <div class="form-group">
-            <label for="af-project">Projekt</label>
-            <input type="text" id="af-project" placeholder="Np. Backend">
           </div>
         </div>
         <div class="form-sliders">
@@ -76,11 +73,13 @@ export function setupAddModal(userUid) {
     err.textContent = "";
     try {
       await addEntry(uid, {
+        taskId:      taskCtx.taskId,
+        taskTitle:   taskCtx.taskTitle,
+        projectName: taskCtx.projectName,
         date:        document.getElementById("af-date").value,
         title:       document.getElementById("af-title").value.trim(),
         description: document.getElementById("af-desc").value.trim(),
         hours:       parseFloat(document.getElementById("af-hours").value),
-        project:     document.getElementById("af-project").value.trim(),
         interest:    parseInt(document.getElementById("af-interest").value),
         learning:    parseInt(document.getElementById("af-learning").value),
         difficulty:  parseInt(document.getElementById("af-difficulty").value),
@@ -96,12 +95,12 @@ export function setupAddModal(userUid) {
   });
 }
 
-export function openAddModal({ date, project } = {}) {
+export function openAddModal({ taskId, taskTitle, projectName, date } = {}) {
+  taskCtx = { taskId, taskTitle, projectName };
   document.getElementById("add-form").reset();
   SLIDERS.forEach(key => { document.getElementById(`av-${key}`).textContent = "5"; });
   document.getElementById("add-form-error").textContent = "";
   document.getElementById("af-date").value = date || new Date().toISOString().slice(0, 10);
-  if (project) document.getElementById("af-project").value = project;
   modal.style.display = "flex";
 }
 

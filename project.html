@@ -6,7 +6,6 @@
   <title>Dzienniczek — projekt</title>
   <link rel="icon" type="image/png" href="icon.png">
   <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
@@ -16,15 +15,18 @@
       <span id="total-hours" class="total-hours"></span>
     </div>
     <div class="header-actions">
-      <button id="btn-add-entry" class="btn-add">+ Dodaj wpis</button>
+      <button id="btn-add-task" class="btn-add">+ Dodaj zadanie</button>
       <div class="header-user">
-        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <img id="user-avatar" class="user-avatar" src="" alt="" referrerpolicy="no-referrer" style="display:none">
         <span id="user-name" class="user-name"></span>
       </div>
     </div>
   </header>
 
-  <div class="charts-grid" id="charts-grid"></div>
+  <div id="tasks-section" class="tasks-section">
+    <p id="tasks-empty" class="status" style="display:none">Brak zadań w tym projekcie.</p>
+    <div id="tasks-list" class="tasks-list"></div>
+  </div>
 
   <script type="module" src="js/project.js"></script>
 </body>

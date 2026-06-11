@@ -3,23 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dzienniczek — dzień</title>
+  <title>Dzienniczek — zadanie</title>
   <link rel="icon" type="image/png" href="icon.png">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
-    <a href="index.html" class="btn-back">← Wróć</a>
-    <div class="day-nav" style="flex:1;justify-content:center">
-      <a id="nav-prev" class="nav-arrow" href="#">‹</a>
-      <div>
-        <h1 id="day-title"></h1>
-        <span id="total-hours" class="total-hours"></span>
-      </div>
-      <a id="nav-next" class="nav-arrow" href="#">›</a>
+    <a id="btn-back" href="index.html" class="btn-back">← Wróć</a>
+    <div style="flex:1">
+      <h1 id="task-title"></h1>
+      <span id="total-hours" class="total-hours"></span>
     </div>
     <div class="header-actions">
+      <button id="btn-add-entry" class="btn-add" style="display:none">+ Dodaj wpis</button>
       <div class="header-user">
         <img id="user-avatar" class="user-avatar" src="" alt="" referrerpolicy="no-referrer" style="display:none">
         <span id="user-name" class="user-name"></span>
@@ -29,6 +26,6 @@
 
   <div class="charts-grid" id="charts-grid"></div>
 
-  <script type="module" src="js/day.js"></script>
+  <script type="module" src="js/task.js"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@
     <div class="header-actions">
       <div id="intern-picker-wrap"></div>
       <div class="header-user">
-        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <img id="user-avatar" class="user-avatar" src="" alt="" referrerpolicy="no-referrer" style="display:none">
         <span id="user-name" class="user-name"></span>
         <button id="btn-logout" class="btn-logout">Wyloguj</button>
       </div>
@@ -34,6 +34,11 @@
     <button class="period-btn" data-period="all">Wszystkie</button>
     <button class="period-btn" data-period="month">W tym miesiącu</button>
     <button class="period-btn" data-period="week">W tym tygodniu</button>
+  </div>
+
+  <div id="tasks-review-section" style="display:none">
+    <h2 class="section-title">Zadania</h2>
+    <div id="tasks-review-list" class="tasks-review-list"></div>
   </div>
 
   <p id="status" class="status"></p>

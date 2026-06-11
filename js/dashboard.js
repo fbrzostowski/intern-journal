@@ -1,6 +1,6 @@
 import { requireAuth, logout } from "./auth.js";
 import {
-  subscribeUserEntries, addEntry,
+  subscribeUserEntries, subscribeAllProjectNames,
   buildDailySummaries, buildProjectList, chartGridColor,
 } from "./store.js";
 
@@ -13,6 +13,7 @@ const CHART_DEFS = [
 
 let chart          = null;
 let currentEntries = [];
+let allProjectNames = [];
 
 async function init() {
   const { user } = await requireAuth("intern");
@@ -22,24 +23,41 @@ async function init() {
   if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
 
   document.getElementById("btn-logout").addEventListener("click", logout);
+  document.getElementById("project-goto-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = document.getElementById("project-goto-input").value.trim();
+    if (name) window.location.href = `project.html?name=${encodeURIComponent(name)}`;
+  });
   document.getElementById("btn-export").addEventListener("click", () => exportCSV(currentEntries));
+
+  subscribeAllProjectNames((names) => {
+    allProjectNames = names;
+    renderProjectsSection();
+  });
 
   subscribeUserEntries(user.uid, (entries) => {
     currentEntries = entries;
-    if (!entries.length) {
-      document.getElementById("status").textContent = "Brak wpisów — kliknij «+ Dodaj wpis» żeby zacząć.";
+    if (entries.length) {
+      document.getElementById("status").textContent = "";
+      renderStats(entries);
+      renderChart(buildDailySummaries(entries));
+      document.getElementById("btn-export").style.display = "";
+    } else {
+      document.getElementById("status").textContent = "Wejdź w projekt, utwórz zadanie i dodaj wpis.";
       document.getElementById("stats-bar").style.display = "none";
-      document.getElementById("projects-section").style.display = "none";
-      return;
     }
-    document.getElementById("status").textContent = "";
-    renderStats(entries);
-    renderChart(buildDailySummaries(entries));
-    renderProjects(buildProjectList(entries));
-    document.getElementById("btn-export").style.display = "";
+    renderProjectsSection();
   });
+}
 
-  setupForm(user.uid);
+function renderProjectsSection() {
+  if (!allProjectNames.length) {
+    document.getElementById("projects-section").style.display = "none";
+    return;
+  }
+  const entryMap = {};
+  buildProjectList(currentEntries).forEach(p => { entryMap[p.name] = p; });
+  renderProjects(allProjectNames.map(name => entryMap[name] ?? { name, hours: 0, count: 0 }));
 }
 
 function renderStats(entries) {
@@ -139,7 +157,7 @@ function renderChart(summaries) {
 }
 
 function renderProjects(projects) {
-  const list   = document.getElementById("projects-list");
+  const list = document.getElementById("projects-list");
   list.innerHTML = "";
   const plural = n => n === 1 ? "wpis" : n < 5 ? "wpisy" : "wpisów";
   projects.forEach(p => {
@@ -149,66 +167,13 @@ function renderProjects(projects) {
     card.innerHTML = `
       <div class="project-card-header">
         <span class="project-name">${p.name}</span>
-        <span class="project-hours">${p.hours}h</span>
+        ${p.hours ? `<span class="project-hours">${p.hours}h</span>` : ""}
       </div>
-      <div class="project-meta">${p.count} ${plural(p.count)}</div>
+      <div class="project-meta">${p.count ? `${p.count} ${plural(p.count)}` : "Brak wpisów"}</div>
     `;
     list.appendChild(card);
   });
   document.getElementById("projects-section").style.display = "";
-}
-
-function setupForm(uid) {
-  const modal   = document.getElementById("entry-modal");
-  const form    = document.getElementById("entry-form");
-  const errEl   = document.getElementById("form-error");
-  const SLIDERS = ["interest", "learning", "difficulty", "mood"];
-
-  SLIDERS.forEach(key => {
-    document.getElementById(`f-${key}`).addEventListener("input", function () {
-      document.getElementById(`v-${key}`).textContent = this.value;
-    });
-  });
-
-  function openModal() {
-    form.reset();
-    SLIDERS.forEach(key => { document.getElementById(`v-${key}`).textContent = "5"; });
-    document.getElementById("f-date").value = new Date().toISOString().slice(0, 10);
-    errEl.textContent = "";
-    modal.style.display = "flex";
-  }
-  function closeModal() { modal.style.display = "none"; }
-
-  document.getElementById("btn-add-entry").addEventListener("click", openModal);
-  document.getElementById("btn-cancel-entry").addEventListener("click", closeModal);
-  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn     = document.getElementById("btn-submit-entry");
-    btn.disabled  = true;
-    btn.textContent = "Zapisywanie…";
-    errEl.textContent = "";
-    try {
-      await addEntry(uid, {
-        date:        document.getElementById("f-date").value,
-        title:       document.getElementById("f-title").value.trim(),
-        description: document.getElementById("f-desc").value.trim(),
-        hours:       parseFloat(document.getElementById("f-hours").value),
-        project:     document.getElementById("f-project").value.trim(),
-        interest:    parseInt(document.getElementById("f-interest").value),
-        learning:    parseInt(document.getElementById("f-learning").value),
-        difficulty:  parseInt(document.getElementById("f-difficulty").value),
-        mood:        parseInt(document.getElementById("f-mood").value),
-      });
-      closeModal();
-    } catch (err) {
-      errEl.textContent = "Błąd zapisu: " + err.message;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Zapisz wpis";
-    }
-  });
 }
 
 function exportCSV(entries) {

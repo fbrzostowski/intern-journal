@@ -13,9 +13,8 @@
     <h1>Dzienniczek stażysty</h1>
     <div class="header-actions">
       <button id="btn-export" class="btn-export" style="display:none">Eksportuj CSV</button>
-      <button id="btn-add-entry" class="btn-add">+ Dodaj wpis</button>
       <div class="header-user">
-        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <img id="user-avatar" class="user-avatar" src="" alt="" referrerpolicy="no-referrer" style="display:none">
         <span id="user-name" class="user-name"></span>
         <button id="btn-logout" class="btn-logout">Wyloguj</button>
       </div>
@@ -54,64 +53,11 @@
     <div id="projects-list" class="projects-list"></div>
   </div>
 
-  <!-- Modal: Dodaj wpis -->
-  <div id="entry-modal" class="modal-overlay" style="display:none">
-    <div class="modal-box entry-form-box">
-      <h2>Nowy wpis</h2>
-      <form id="entry-form" novalidate>
-
-        <div class="form-group">
-          <label for="f-title">Tytuł zadania *</label>
-          <input type="text" id="f-title" required placeholder="Np. Analiza wymagań">
-        </div>
-
-        <div class="form-group">
-          <label for="f-desc">Opis</label>
-          <textarea id="f-desc" rows="3" placeholder="Co robiłeś/aś?"></textarea>
-        </div>
-
-        <div class="form-row form-row-3">
-          <div class="form-group">
-            <label for="f-date">Data *</label>
-            <input type="date" id="f-date" required>
-          </div>
-          <div class="form-group">
-            <label for="f-hours">Godziny *</label>
-            <input type="number" id="f-hours" min="0.25" max="24" step="0.25" required placeholder="2">
-          </div>
-          <div class="form-group">
-            <label for="f-project">Projekt</label>
-            <input type="text" id="f-project" placeholder="Np. Backend">
-          </div>
-        </div>
-
-        <div class="form-sliders">
-          <div class="slider-row">
-            <div class="slider-label"><span>Ciekawość</span><span class="slider-value" id="v-interest">5</span></div>
-            <input type="range" id="f-interest" min="1" max="10" value="5">
-          </div>
-          <div class="slider-row">
-            <div class="slider-label"><span>Nauka</span><span class="slider-value" id="v-learning">5</span></div>
-            <input type="range" id="f-learning" min="1" max="10" value="5">
-          </div>
-          <div class="slider-row">
-            <div class="slider-label"><span>Trudność</span><span class="slider-value" id="v-difficulty">5</span></div>
-            <input type="range" id="f-difficulty" min="1" max="10" value="5">
-          </div>
-          <div class="slider-row">
-            <div class="slider-label"><span>Samopoczucie</span><span class="slider-value" id="v-mood">5</span></div>
-            <input type="range" id="f-mood" min="1" max="10" value="5">
-          </div>
-        </div>
-
-        <p id="form-error" class="form-error"></p>
-
-        <div class="form-actions">
-          <button type="button" id="btn-cancel-entry" class="btn-secondary">Anuluj</button>
-          <button type="submit" id="btn-submit-entry" class="btn-add">Zapisz wpis</button>
-        </div>
-      </form>
-    </div>
+  <div class="project-goto-wrap">
+    <form id="project-goto-form" class="project-goto-form">
+      <input type="text" id="project-goto-input" class="project-goto-input" placeholder="Nazwa projektu…" autocomplete="off">
+      <button type="submit" class="btn-add">Przejdź →</button>
+    </form>
   </div>
 
   <script type="module" src="js/dashboard.js"></script>
