@@ -3,6 +3,13 @@ import { getAllUsers, updateUserRole, updateUserChatSpaceId, updateUserSendHour,
 
 const ROLE_LABELS = { setup: "Oczekuje", admin: "Administrator", intern: "Stażysta", inactive: "Nie Aktywny" };
 
+// obsługuje zarówno stary format (integer 17) jak i nowy ("17:30")
+function sendHourToTime(val) {
+  if (!val && val !== 0) return "17:00";
+  if (typeof val === "number") return `${String(val).padStart(2, "0")}:00`;
+  return String(val); // już "HH:MM"
+}
+
 let currentUid = null;
 
 async function init() {
@@ -93,11 +100,9 @@ async function renderUsers() {
       </div>
       <div class="user-row-chat">
         <span class="user-row-chat-label">Godzina wysyłki (czas warszawski)</span>
-        <select class="send-hour-select">
-          ${[14,15,16,17,18,19].map(h =>
-            `<option value="${h}" ${(u.sendHour ?? 17) == h ? "selected" : ""}>${String(h).padStart(2,"0")}:00</option>`
-          ).join("")}
-        </select>
+        <input type="time" class="send-hour-select"
+          min="14:00" max="19:59"
+          value="${sendHourToTime(u.sendHour)}">
         <span class="send-hour-status"></span>
       </div>` : ""}
     `;
@@ -159,8 +164,10 @@ async function renderUsers() {
     if (sendHourSelect) {
       const statusEl = row.querySelector(".send-hour-status");
       sendHourSelect.addEventListener("change", async () => {
+        const val = sendHourSelect.value; // "HH:MM"
+        if (!val) return;
         try {
-          await updateUserSendHour(u.uid, parseInt(sendHourSelect.value, 10));
+          await updateUserSendHour(u.uid, val);
           statusEl.textContent = "Zapisano.";
           statusEl.style.color = "var(--green)";
           setTimeout(() => { statusEl.textContent = ""; }, 2000);

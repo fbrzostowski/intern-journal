@@ -72,11 +72,20 @@ function getTodayBounds() {
   };
 }
 
-function getCurrentWarsawHour() {
+function getCurrentWarsawMinutes() {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: TIMEZONE, hour: "2-digit", hour12: false,
+    timeZone: TIMEZONE, hour: "2-digit", minute: "2-digit", hour12: false,
   }).formatToParts(new Date());
-  return parseInt(parts.find(p => p.type === "hour").value, 10);
+  const h = parseInt(parts.find(p => p.type === "hour").value,   10);
+  const m = parseInt(parts.find(p => p.type === "minute").value, 10);
+  return h * 60 + m;
+}
+
+function parseSendMinutes(val) {
+  if (!val && val !== 0) return 17 * 60; // domyślnie 17:00
+  if (typeof val === "number") return val * 60;
+  const [h, m] = String(val).split(":").map(Number);
+  return h * 60 + (m || 0);
 }
 
 // ── Main ──────────────────────────────────────────────────────────
@@ -93,16 +102,16 @@ async function main() {
     db.collection("users").get(),
   ]);
 
-  const currentHour = getCurrentWarsawHour();
-  console.log(`Aktualna godzina (Warszawa): ${currentHour}:00`);
+  const currentMin = getCurrentWarsawMinutes();
+  const currentLabel = `${String(Math.floor(currentMin / 60)).padStart(2, "0")}:${String(currentMin % 60).padStart(2, "0")}`;
+  console.log(`Aktualna godzina (Warszawa): ${currentLabel}`);
 
-  // Administratorzy ze skonfigurowanym Chat Space ID i pasującą godziną wysyłki
+  // Administratorzy ze skonfigurowanym Chat Space ID i pasującą godziną wysyłki (okno ±7 min)
   const admins = usersSnap.docs
     .filter(d => {
       const u = d.data();
       if (u.role !== "admin" || !u.chatSpaceId || !u.chatSpaceId.trim()) return false;
-      const sendHour = u.sendHour ?? 17;
-      return parseInt(sendHour, 10) === currentHour;
+      return Math.abs(parseSendMinutes(u.sendHour) - currentMin) <= 7;
     })
     .map(d => {
       const u = d.data();
@@ -110,7 +119,7 @@ async function main() {
     });
 
   if (admins.length === 0) {
-    console.log(`Brak administratorów z wysyłką o ${currentHour}:00 — przerywam.`);
+    console.log(`Brak administratorów z wysyłką o ${currentLabel} (±7 min) — przerywam.`);
     return;
   }
   console.log(`Odbiorcy: ${admins.map(a => a.name).join(", ")}`);
