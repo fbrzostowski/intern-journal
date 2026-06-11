@@ -1,5 +1,5 @@
 import { requireAuth, logout } from "./auth.js";
-import { subscribeAllEntries, subscribeProjectTasks, getAllUsers, updateTaskStatus } from "./store.js";
+import { subscribeAllEntries, subscribeProjectTasks, getAllUsers, updateTaskStatus, deleteTask } from "./store.js";
 import { buildInternPicker } from "./intern-picker.js";
 import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
 
@@ -146,6 +146,12 @@ function buildTaskCard(task, hours) {
         <span class="task-status-badge ${s.cls}">${s.label}</span>
         <span class="task-hours">${hoursStr}</span>
         ${task.status === 'reviewing' ? `<button class="btn-approve-task btn-add" type="button">Zatwierdź ✓</button>` : ''}
+        <button class="btn-delete-task" title="Usuń zadanie" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
       </div>
     </div>
     ${task.description ? `<p class="task-desc">${task.description}</p>` : ''}
@@ -163,6 +169,14 @@ function buildTaskCard(task, hours) {
       await updateTaskStatus(task.id, 'done');
     });
   }
+
+  a.querySelector('.btn-delete-task').addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Usunąć zadanie „${task.title}" wraz ze wszystkimi wpisami?`)) return;
+    try { await deleteTask(task.id); }
+    catch (err) { alert('Błąd usuwania: ' + err.message); }
+  });
 
   return a;
 }
