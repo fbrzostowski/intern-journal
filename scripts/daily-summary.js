@@ -22,10 +22,19 @@ const FALLBACK_NAME = "(brak projektu)";
 
 // ── Helpers ───────────────────────────────────────────────────────
 
+function normalizeSpaceId(raw) {
+  // https://mail.google.com/chat/u/0/#chat/space/AAABBB  →  spaces/AAABBB
+  const urlMatch = raw.match(/space\/([^/?#]+)/);
+  if (urlMatch) return `spaces/${urlMatch[1]}`;
+  if (raw.startsWith("spaces/")) return raw;
+  return `spaces/${raw}`;
+}
+
 async function sendDM(spaceId, text) {
-  // spaceId może być "AAABBB" albo "spaces/AAABBB" — normalizujemy
-  const parent = spaceId.startsWith("spaces/") ? spaceId : `spaces/${spaceId}`;
-  await chat.spaces.messages.create({ parent, requestBody: { text } });
+  await chat.spaces.messages.create({
+    parent: normalizeSpaceId(spaceId),
+    requestBody: { text },
+  });
 }
 
 function fmtHours(h) {
