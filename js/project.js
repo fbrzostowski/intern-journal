@@ -1,5 +1,5 @@
 import { requireAuth } from "./auth.js";
-import { subscribeProjectTasks, subscribeUserEntries, getAllUsers } from "./store.js";
+import { subscribeProjectTasks, subscribeUserEntries, getAllUsers, deleteTask } from "./store.js";
 import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
 
 async function init() {
@@ -91,9 +91,9 @@ async function init() {
   }
 
   function buildOwnCard(task, hoursByTask) {
-    const hours      = hoursByTask[task.id] || 0;
-    const hoursStr   = hours ? `${Math.round(hours * 10) / 10}h` : "0h";
-    const taskUrl    = `task.html?id=${task.id}&title=${encodeURIComponent(task.title)}&project=${encodeURIComponent(name)}&owner=${user.uid}`;
+    const hours    = hoursByTask[task.id] || 0;
+    const hoursStr = hours ? `${Math.round(hours * 10) / 10}h` : "0h";
+    const taskUrl  = `task.html?id=${task.id}&title=${encodeURIComponent(task.title)}&project=${encodeURIComponent(name)}&owner=${user.uid}`;
 
     const a = document.createElement("a");
     a.href      = taskUrl;
@@ -101,10 +101,30 @@ async function init() {
     a.innerHTML = `
       <div class="task-card-header">
         <span class="task-name">${task.title}</span>
-        <span class="task-hours">${hoursStr}</span>
+        <div class="task-card-actions">
+          <span class="task-hours">${hoursStr}</span>
+          <button class="btn-delete-task" title="Usuń zadanie" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
+        </div>
       </div>
       ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
     `;
+
+    a.querySelector(".btn-delete-task").addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!confirm(`Usunąć zadanie „${task.title}" wraz ze wszystkimi wpisami?`)) return;
+      try {
+        await deleteTask(task.id);
+      } catch (err) {
+        alert("Błąd usuwania: " + err.message);
+      }
+    });
+
     return a;
   }
 
