@@ -1,7 +1,6 @@
 import { requireAuth } from "./auth.js";
 import { subscribeUserEntries, chartGridColor } from "./store.js";
 import { setupEditModal, openEditModal } from "./edit-modal.js";
-import { setupAddModal, openAddModal } from "./add-entry-modal.js";
 
 const CATEGORIES = [
   { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
@@ -21,8 +20,6 @@ async function init() {
   if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
 
   setupEditModal();
-  setupAddModal(user.uid);
-  document.getElementById("btn-add-entry").addEventListener("click", () => openAddModal({ date }));
 
   subscribeUserEntries(user.uid, (allEntries) => {
     const dayEntries = allEntries.filter(e => e.date === date);
@@ -39,6 +36,7 @@ async function init() {
 
     if (!dayEntries.length) {
       document.getElementById('day-title').textContent = 'Brak wpisów dla tego dnia';
+      document.getElementById('charts-grid').innerHTML = '';
       return;
     }
 
@@ -52,6 +50,10 @@ async function init() {
     grid.innerHTML = '';
 
     dayEntries.forEach((entry, i) => {
+      const taskUrl = entry.taskId
+        ? `task.html?id=${entry.taskId}&title=${encodeURIComponent(entry.taskTitle)}&project=${encodeURIComponent(entry.projectName)}&owner=${user.uid}`
+        : `project.html?name=${encodeURIComponent(entry.projectName)}`;
+
       const wrap = document.createElement('div');
       wrap.className = 'chart-wrap entry-card';
       wrap.innerHTML = `
@@ -68,7 +70,7 @@ async function init() {
               </button>
             </div>
           </div>
-          <a href="project.html?name=${encodeURIComponent(entry.project)}" class="entry-project-link">${entry.project}</a>
+          <a href="${taskUrl}" class="entry-project-link">${entry.taskTitle || entry.projectName}</a>
           ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
         </div>
         <div class="entry-canvas-wrap">
@@ -88,17 +90,17 @@ async function init() {
             borderColor:     CATEGORIES.map(c => c.color),
             borderWidth: 1.5,
             borderRadius: 6,
-          }]
+          }],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
             y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: chartGridColor() } },
-            x: { ticks: { color: '#333', font: { size: 12, weight: '500' } }, grid: { display: false } }
+            x: { ticks: { color: '#333', font: { size: 12, weight: '500' } }, grid: { display: false } },
           },
-          plugins: { legend: { display: false } }
-        }
+          plugins: { legend: { display: false } },
+        },
       });
     });
   });

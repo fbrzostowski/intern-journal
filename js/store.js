@@ -31,9 +31,8 @@ function clearCache() {
   sessionStorage.removeItem(CACHE_KEY);
 }
 
-// Subskrybuje wpisy użytkownika.
-// Jeśli cache istnieje — callback odpala się natychmiast z cache,
-// potem ponownie gdy Firestore odpowie (zwykle bez widocznej zmiany).
+// ── Entries ────────────────────────────────────────────────────────
+
 export function subscribeUserEntries(uid, callback) {
   const cached = loadCache(uid);
   if (cached) callback(cached);
@@ -48,16 +47,20 @@ export function subscribeUserEntries(uid, callback) {
       .map(d => {
         const data = d.data();
         const ts   = data.timestamp?.toDate() ?? new Date();
+        const proj = data.projectName || data.project || "(brak projektu)";
         return {
           id:          d.id,
           uid:         data.uid,
+          taskId:      data.taskId      || "",
+          taskTitle:   data.taskTitle   || "",
+          projectName: proj,
+          project:     proj, // alias — używane przez buildProjectList i widoki admina
           timestamp:   ts,
           date:        ts.toISOString().slice(0, 10),
           dateLabel:   formatDateLabel(ts),
           title:       data.title       ?? "",
           description: data.description ?? "",
           hours:       data.hours       || 0,
-          project:     data.project     || "(brak projektu)",
           ratings: {
             interest:   data.interest   || 0,
             learning:   data.learning   || 0,
@@ -72,6 +75,39 @@ export function subscribeUserEntries(uid, callback) {
   });
 }
 
+export function subscribeTaskEntries(taskId, callback) {
+  const q = query(
+    collection(db, "entries"),
+    where("taskId", "==", taskId),
+    orderBy("timestamp", "asc")
+  );
+  return onSnapshot(q, (snap) => {
+    const entries = snap.docs.map(d => {
+      const data = d.data();
+      const ts   = data.timestamp?.toDate() ?? new Date();
+      return {
+        id:          d.id,
+        uid:         data.uid,
+        taskId:      data.taskId      || "",
+        taskTitle:   data.taskTitle   || "",
+        projectName: data.projectName || "",
+        timestamp:   ts,
+        date:        ts.toISOString().slice(0, 10),
+        title:       data.title       ?? "",
+        description: data.description ?? "",
+        hours:       data.hours       || 0,
+        ratings: {
+          interest:   data.interest   || 0,
+          learning:   data.learning   || 0,
+          difficulty: data.difficulty || 0,
+          mood:       data.mood       || 0,
+        },
+      };
+    });
+    callback(entries);
+  });
+}
+
 export async function addEntry(uid, data) {
   clearCache();
   const timestamp = data.date
@@ -79,11 +115,13 @@ export async function addEntry(uid, data) {
     : new Date();
   await addDoc(collection(db, "entries"), {
     uid,
+    taskId:      data.taskId,
+    taskTitle:   data.taskTitle,
+    projectName: data.projectName,
     timestamp,
     title:       data.title,
     description: data.description,
     hours:       data.hours,
-    project:     data.project,
     interest:    data.interest,
     learning:    data.learning,
     difficulty:  data.difficulty,
@@ -97,7 +135,6 @@ export async function updateEntry(entryId, data) {
     title:       data.title,
     description: data.description,
     hours:       data.hours,
-    project:     data.project,
     interest:    data.interest,
     learning:    data.learning,
     difficulty:  data.difficulty,
@@ -107,16 +144,81 @@ export async function updateEntry(entryId, data) {
   await updateDoc(doc(db, "entries", entryId), updates);
 }
 
+// ── Tasks ──────────────────────────────────────────────────────────
+
+export async function addTask(uid, data) {
+  return await addDoc(collection(db, "tasks"), {
+    uid,
+    projectName:  data.projectName,
+    title:        data.title,
+    description:  data.description || "",
+    createdAt:    serverTimestamp(),
+  });
+}
+
+export async function updateTask(taskId, data) {
+  await updateDoc(doc(db, "tasks", taskId), {
+    title:       data.title,
+    description: data.description || "",
+  });
+}
+
+export async function deleteTask(taskId) {
+  const entriesSnap = await getDocs(
+    query(collection(db, "entries"), where("taskId", "==", taskId))
+  );
+  const batch = writeBatch(db);
+  entriesSnap.docs.forEach(d => batch.delete(d.ref));
+  batch.delete(doc(db, "tasks", taskId));
+  await batch.commit();
+  clearCache();
+}
+
+export function subscribeProjectTasks(projectName, callback) {
+  const q = query(
+    collection(db, "tasks"),
+    where("projectName", "==", projectName),
+    orderBy("createdAt", "asc")
+  );
+  return onSnapshot(q, (snap) => {
+    const tasks = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id:          d.id,
+        uid:         data.uid,
+        projectName: data.projectName || "",
+        title:       data.title       || "",
+        description: data.description || "",
+        createdAt:   data.createdAt?.toDate() ?? new Date(),
+      };
+    });
+    callback(tasks);
+  });
+}
+
+// ── Users / Admin ──────────────────────────────────────────────────
+
 export async function updateUserRole(uid, role) {
   await updateDoc(doc(db, "users", uid), { role });
 }
 
+export async function updateUserChatSpaceId(uid, chatSpaceId) {
+  await updateDoc(doc(db, "users", uid), { chatSpaceId });
+}
+
+export async function updateUserSendHour(uid, sendHour) {
+  await updateDoc(doc(db, "users", uid), { sendHour });
+}
+
 export async function deleteUser(uid) {
-  const entriesSnap = await getDocs(
-    query(collection(db, "entries"), where("uid", "==", uid))
-  );
+  // Usuń wpisy i zadania użytkownika, potem dokument użytkownika
+  const [entriesSnap, tasksSnap] = await Promise.all([
+    getDocs(query(collection(db, "entries"), where("uid", "==", uid))),
+    getDocs(query(collection(db, "tasks"),   where("uid", "==", uid))),
+  ]);
   const batch = writeBatch(db);
   entriesSnap.docs.forEach(d => batch.delete(d.ref));
+  tasksSnap.docs.forEach(d => batch.delete(d.ref));
   batch.delete(doc(db, "users", uid));
   await batch.commit();
   clearCache();
@@ -133,16 +235,20 @@ export function subscribeAllEntries(callback) {
     const entries = snap.docs.map(d => {
       const data = d.data();
       const ts   = data.timestamp?.toDate() ?? new Date();
+      const proj = data.projectName || data.project || "(brak projektu)";
       return {
         id:          d.id,
         uid:         data.uid,
+        taskId:      data.taskId    || "",
+        taskTitle:   data.taskTitle || "",
+        projectName: proj,
+        project:     proj,
         timestamp:   ts,
         date:        ts.toISOString().slice(0, 10),
         dateLabel:   formatDateLabel(ts),
         title:       data.title       ?? "",
         description: data.description ?? "",
         hours:       data.hours       || 0,
-        project:     data.project     || "(brak projektu)",
         ratings: {
           interest:   data.interest   || 0,
           learning:   data.learning   || 0,
@@ -154,6 +260,8 @@ export function subscribeAllEntries(callback) {
     callback(entries);
   });
 }
+
+// ── Helpers ────────────────────────────────────────────────────────
 
 export function buildDailySummaries(entries) {
   const byDay = {};

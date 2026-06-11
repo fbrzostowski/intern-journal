@@ -1,6 +1,6 @@
 import { requireAuth, logout } from "./auth.js";
 import {
-  subscribeUserEntries, addEntry,
+  subscribeUserEntries,
   buildDailySummaries, buildProjectList, chartGridColor,
 } from "./store.js";
 
@@ -27,7 +27,7 @@ async function init() {
   subscribeUserEntries(user.uid, (entries) => {
     currentEntries = entries;
     if (!entries.length) {
-      document.getElementById("status").textContent = "Brak wpisów — kliknij «+ Dodaj wpis» żeby zacząć.";
+      document.getElementById("status").textContent = "Brak wpisów — wejdź w projekt, utwórz zadanie i dodaj wpis.";
       document.getElementById("stats-bar").style.display = "none";
       document.getElementById("projects-section").style.display = "none";
       return;
@@ -38,8 +38,6 @@ async function init() {
     renderProjects(buildProjectList(entries));
     document.getElementById("btn-export").style.display = "";
   });
-
-  setupForm(user.uid);
 }
 
 function renderStats(entries) {
@@ -156,59 +154,6 @@ function renderProjects(projects) {
     list.appendChild(card);
   });
   document.getElementById("projects-section").style.display = "";
-}
-
-function setupForm(uid) {
-  const modal   = document.getElementById("entry-modal");
-  const form    = document.getElementById("entry-form");
-  const errEl   = document.getElementById("form-error");
-  const SLIDERS = ["interest", "learning", "difficulty", "mood"];
-
-  SLIDERS.forEach(key => {
-    document.getElementById(`f-${key}`).addEventListener("input", function () {
-      document.getElementById(`v-${key}`).textContent = this.value;
-    });
-  });
-
-  function openModal() {
-    form.reset();
-    SLIDERS.forEach(key => { document.getElementById(`v-${key}`).textContent = "5"; });
-    document.getElementById("f-date").value = new Date().toISOString().slice(0, 10);
-    errEl.textContent = "";
-    modal.style.display = "flex";
-  }
-  function closeModal() { modal.style.display = "none"; }
-
-  document.getElementById("btn-add-entry").addEventListener("click", openModal);
-  document.getElementById("btn-cancel-entry").addEventListener("click", closeModal);
-  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn     = document.getElementById("btn-submit-entry");
-    btn.disabled  = true;
-    btn.textContent = "Zapisywanie…";
-    errEl.textContent = "";
-    try {
-      await addEntry(uid, {
-        date:        document.getElementById("f-date").value,
-        title:       document.getElementById("f-title").value.trim(),
-        description: document.getElementById("f-desc").value.trim(),
-        hours:       parseFloat(document.getElementById("f-hours").value),
-        project:     document.getElementById("f-project").value.trim(),
-        interest:    parseInt(document.getElementById("f-interest").value),
-        learning:    parseInt(document.getElementById("f-learning").value),
-        difficulty:  parseInt(document.getElementById("f-difficulty").value),
-        mood:        parseInt(document.getElementById("f-mood").value),
-      });
-      closeModal();
-    } catch (err) {
-      errEl.textContent = "Błąd zapisu: " + err.message;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Zapisz wpis";
-    }
-  });
 }
 
 function exportCSV(entries) {
