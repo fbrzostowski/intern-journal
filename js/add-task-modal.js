@@ -1,17 +1,22 @@
 import { addTask, updateTaskMembers } from "./store.js";
 
-let modal          = null;
-let ownerUid       = null;
-let projectCtx     = null;
-let contextUsers   = null;
-let pendingMembers = []; // [{ uid, role }]
+let modal           = null;
+let ownerUid        = null; // admin uid
+let projectCtx      = null;
+let contextUsers    = null;
+let pendingMembers  = []; // [{ uid, role }]
+let pendingOwnerUid = null; // kto będzie task.uid (domyślnie pierwszy dodany)
+
+const CROWN_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+  <path d="M2 19h20v2H2v-2zM2 6l5 8 5-6 5 6 5-8v11H2V6z"/>
+</svg>`;
 
 export function setupAddTaskModal(userUid, { allUsers } = {}) {
   ownerUid     = userUid;
   contextUsers = allUsers || null;
 
-  const isAdmin  = !!contextUsers;
-  const title    = isAdmin ? "Zleć zadanie" : "Nowe zadanie";
+  const isAdmin   = !!contextUsers;
+  const title     = isAdmin ? "Zleć zadanie" : "Nowe zadanie";
   const submitLbl = isAdmin ? "Zleć zadanie" : "Utwórz zadanie";
 
   modal = document.createElement("div");
@@ -69,6 +74,8 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
       if (!uid) { errEl.textContent = "Wybierz stażystę."; return; }
       errEl.textContent = "";
       pendingMembers.push({ uid, role });
+      // Pierwszy dodany = domyślny właściciel
+      if (!pendingOwnerUid) pendingOwnerUid = uid;
       renderMembersList();
       refreshNewMemberSelect();
       document.getElementById("tf-new-member").value = "";
@@ -83,15 +90,21 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
     btn.textContent = "Zapisywanie…";
     err.textContent = "";
 
+    // task.uid = wybrany właściciel lub admin jeśli nikt nie dodany
+    const taskOwner = (contextUsers && pendingOwnerUid) ? pendingOwnerUid : ownerUid;
+
     try {
-      const taskRef = await addTask(ownerUid, {
+      const taskRef = await addTask(taskOwner, {
         projectName:  projectCtx,
         title:        document.getElementById("tf-title").value.trim(),
         description:  document.getElementById("tf-desc").value.trim(),
         status:       "todo",
       });
+      // Dodaj pozostałych jako members (nie właściciela)
       for (const { uid, role } of pendingMembers) {
-        await updateTaskMembers(taskRef.id, uid, role);
+        if (uid !== taskOwner) {
+          await updateTaskMembers(taskRef.id, uid, role);
+        }
       }
       closeModal();
     } catch (error) {
@@ -104,17 +117,17 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
 }
 
 export function openAddTaskModal(projectName) {
-  projectCtx    = projectName;
-  pendingMembers = [];
+  projectCtx      = projectName;
+  pendingMembers  = [];
+  pendingOwnerUid = null;
   document.getElementById("task-form").reset();
   document.getElementById("task-form-error").textContent = "";
 
   if (contextUsers) {
     renderMembersList();
     refreshNewMemberSelect();
-    if (document.getElementById("task-members-error")) {
-      document.getElementById("task-members-error").textContent = "";
-    }
+    const errEl = document.getElementById("task-members-error");
+    if (errEl) errEl.textContent = "";
   }
 
   modal.style.display = "flex";
@@ -126,8 +139,8 @@ function refreshNewMemberSelect() {
   const sel = document.getElementById("tf-new-member");
   if (!sel) return;
 
-  const excluded = new Set([ownerUid, ...pendingMembers.map(m => m.uid)]);
-  const available    = contextUsers.filter(u =>
+  const excluded  = new Set([ownerUid, ...pendingMembers.map(m => m.uid)]);
+  const available = contextUsers.filter(u =>
     !excluded.has(u.uid) && (u.role === "intern" || !u.role)
   );
 
@@ -149,8 +162,10 @@ function renderMembersList() {
   list.innerHTML = "";
 
   pendingMembers.forEach(({ uid, role }, idx) => {
-    const ud   = contextUsers.find(u => u.uid === uid);
-    const name = displayName(ud);
+    const ud      = contextUsers.find(u => u.uid === uid);
+    const name    = displayName(ud);
+    const isOwner = uid === pendingOwnerUid;
+
     const avatarHtml = ud?.photoURL
       ? `<img src="${ud.photoURL}" class="member-avatar" referrerpolicy="no-referrer" alt="">`
       : `<div class="member-initials">${name[0].toUpperCase()}</div>`;
@@ -163,6 +178,10 @@ function renderMembersList() {
         <span class="member-name">${name}</span>
       </div>
       <div class="member-actions">
+        <button type="button" class="btn-set-owner${isOwner ? " btn-set-owner--active" : ""}"
+          data-uid="${uid}" title="${isOwner ? "Właściciel zadania" : "Ustaw jako właściciela"}">
+          ${CROWN_SVG}
+        </button>
         <select class="member-role-select" data-idx="${idx}">
           <option value="write" ${role === "write" ? "selected" : ""}>Edycja</option>
           <option value="read"  ${role === "read"  ? "selected" : ""}>Odczyt</option>
@@ -171,11 +190,19 @@ function renderMembersList() {
       </div>
     `;
 
+    row.querySelector(".btn-set-owner").addEventListener("click", () => {
+      pendingOwnerUid = uid;
+      renderMembersList();
+    });
     row.querySelector(".member-role-select").addEventListener("change", (e) => {
       pendingMembers[+e.target.dataset.idx].role = e.target.value;
     });
     row.querySelector(".btn-remove-member").addEventListener("click", (e) => {
-      pendingMembers.splice(+e.target.closest("[data-idx]").dataset.idx, 1);
+      const i = +e.target.closest("[data-idx]").dataset.idx;
+      const removed = pendingMembers.splice(i, 1)[0];
+      if (pendingOwnerUid === removed.uid) {
+        pendingOwnerUid = pendingMembers.length ? pendingMembers[0].uid : null;
+      }
       renderMembersList();
       refreshNewMemberSelect();
     });
