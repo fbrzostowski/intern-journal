@@ -22,7 +22,11 @@ export function setupEditModal() {
           <label for="ef-desc">Opis</label>
           <textarea id="ef-desc" rows="3"></textarea>
         </div>
-        <div class="form-row">
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label for="ef-date">Data *</label>
+            <input type="date" id="ef-date" required>
+          </div>
           <div class="form-group">
             <label for="ef-hours">Godziny *</label>
             <input type="number" id="ef-hours" min="0.25" max="24" step="0.25" required>
@@ -71,6 +75,7 @@ export function setupEditModal() {
     err.textContent = "";
     try {
       await updateEntry(currentEntryId, {
+        date:        document.getElementById("ef-date").value,
         title:       document.getElementById("ef-title").value.trim(),
         description: document.getElementById("ef-desc").value.trim(),
         hours:       parseFloat(document.getElementById("ef-hours").value),
@@ -93,6 +98,7 @@ export function setupEditModal() {
 export function openEditModal(entry) {
   currentEntryId = entry.id;
 
+  document.getElementById("ef-date").value    = entry.date;
   document.getElementById("ef-title").value   = entry.title;
   document.getElementById("ef-desc").value    = entry.description;
   document.getElementById("ef-hours").value   = entry.hours;

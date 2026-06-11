@@ -1,6 +1,7 @@
 import { requireAuth } from "./auth.js";
 import { subscribeUserEntries, chartGridColor } from "./store.js";
 import { setupEditModal, openEditModal } from "./edit-modal.js";
+import { setupAddModal, openAddModal } from "./add-entry-modal.js";
 
 const CATEGORIES = [
   { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
@@ -15,7 +16,13 @@ async function init() {
   if (!date) { window.location.href = 'index.html'; return; }
 
   const { user } = await requireAuth();
+  document.getElementById("user-name").textContent = user.displayName ?? user.email;
+  const avatar = document.getElementById("user-avatar");
+  if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
+
   setupEditModal();
+  setupAddModal(user.uid);
+  document.getElementById("btn-add-entry").addEventListener("click", () => openAddModal({ date }));
 
   subscribeUserEntries(user.uid, (allEntries) => {
     const dayEntries = allEntries.filter(e => e.date === date);
