@@ -111,10 +111,7 @@ function renderAll() {
   const container = document.getElementById('tasks-container');
   container.innerHTML = '';
 
-  if (!allTasks.length) {
-    container.innerHTML = '<p class="status">Brak zadań w tym projekcie.</p>';
-    return;
-  }
+  if (!allTasks.length) return; // czekaj aż zadania się załadują
 
   // Group entries by taskId
   const byTask = {};
@@ -219,7 +216,7 @@ function renderEntriesGrid(container, entries) {
     `;
     grid.appendChild(wrap);
 
-    chartInstances[entry.id] = new Chart(document.getElementById(canvasId).getContext('2d'), {
+    chartInstances[entry.id] = new Chart(wrap.querySelector('canvas').getContext('2d'), {
       type: 'bar',
       data: {
         labels:   CATEGORIES.map(c => c.label),
