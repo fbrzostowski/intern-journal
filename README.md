@@ -2,7 +2,7 @@
 
 Aplikacja webowa do śledzenia postępów stażu. Stażyści logują się przez Google i dodają wpisy z oceną dnia; administratorzy widzą wszystkich i otrzymują codzienne podsumowanie na Google Chat.
 
-**URL:** https://fbrzostowski.github.io/dzienniczek-stazysty
+**URL:** [https://fbrzostowski.github.io/dzienniczek-stazysty](https://fbrzostowski.github.io/intern-journal/)
 
 ---
 
