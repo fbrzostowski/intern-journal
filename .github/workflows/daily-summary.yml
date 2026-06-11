@@ -2,9 +2,9 @@ name: Podsumowanie dnia → Google Chat
 
 on:
   schedule:
-    # 15:00 UTC = 17:00 CEST (lato) / 16:00 CET (zima)
-    # Zmień na '0 16 * * 1-5' jeśli wolisz dokładnie 17:00 zimą kosztem 18:00 latem
-    - cron: '0 15 * * 1-5'
+    # Co godzinę 12:00–18:00 UTC = 14:00–20:00 CEST (lato) / 13:00–19:00 CET (zima)
+    # Skrypt sprawdza per-admin czy bieżąca godzina warszawska pasuje do ustawienia
+    - cron: '0 12-18 * * 1-5'
   workflow_dispatch:   # możliwość ręcznego uruchomienia z zakładki Actions
 
 jobs:

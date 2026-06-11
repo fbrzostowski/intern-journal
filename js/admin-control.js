@@ -1,5 +1,5 @@
 import { requireAuth, logout } from "./auth.js";
-import { getAllUsers, updateUserRole, updateUserChatSpaceId, deleteUser } from "./store.js";
+import { getAllUsers, updateUserRole, updateUserChatSpaceId, updateUserSendHour, deleteUser } from "./store.js";
 
 const ROLE_LABELS = { setup: "Oczekuje", admin: "Administrator", intern: "Stażysta", inactive: "Nie Aktywny" };
 
@@ -77,6 +77,15 @@ async function renderUsers() {
           placeholder="np. AAABBBCCC…"
           value="${u.chatSpaceId ?? ""}">
         <span class="chat-space-id-status"></span>
+      </div>
+      <div class="user-row-chat">
+        <span class="user-row-chat-label">Godzina wysyłki (czas warszawski)</span>
+        <select class="send-hour-select">
+          ${[14,15,16,17,18,19].map(h =>
+            `<option value="${h}" ${(u.sendHour ?? 17) == h ? "selected" : ""}>${String(h).padStart(2,"0")}:00</option>`
+          ).join("")}
+        </select>
+        <span class="send-hour-status"></span>
       </div>` : ""}
     `;
 
@@ -128,6 +137,22 @@ async function renderUsers() {
               statusEl.style.color = "#dc2626";
             }
           }, 800);
+        });
+      }
+
+      const sendHourSelect = row.querySelector(".send-hour-select");
+      if (sendHourSelect) {
+        const statusEl = row.querySelector(".send-hour-status");
+        sendHourSelect.addEventListener("change", async () => {
+          try {
+            await updateUserSendHour(u.uid, parseInt(sendHourSelect.value, 10));
+            statusEl.textContent = "Zapisano.";
+            statusEl.style.color = "var(--green)";
+            setTimeout(() => { statusEl.textContent = ""; }, 2000);
+          } catch (e) {
+            statusEl.textContent = "Błąd zapisu";
+            statusEl.style.color = "#dc2626";
+          }
         });
       }
     }

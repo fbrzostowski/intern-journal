@@ -72,6 +72,13 @@ function getTodayBounds() {
   };
 }
 
+function getCurrentWarsawHour() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE, hour: "2-digit", hour12: false,
+  }).formatToParts(new Date());
+  return parseInt(parts.find(p => p.type === "hour").value, 10);
+}
+
 // ── Main ──────────────────────────────────────────────────────────
 
 async function main() {
@@ -86,11 +93,16 @@ async function main() {
     db.collection("users").get(),
   ]);
 
-  // Administratorzy ze skonfigurowanym Chat Space ID
+  const currentHour = getCurrentWarsawHour();
+  console.log(`Aktualna godzina (Warszawa): ${currentHour}:00`);
+
+  // Administratorzy ze skonfigurowanym Chat Space ID i pasującą godziną wysyłki
   const admins = usersSnap.docs
     .filter(d => {
       const u = d.data();
-      return u.role === "admin" && u.chatSpaceId && u.chatSpaceId.trim();
+      if (u.role !== "admin" || !u.chatSpaceId || !u.chatSpaceId.trim()) return false;
+      const sendHour = u.sendHour ?? 17;
+      return parseInt(sendHour, 10) === currentHour;
     })
     .map(d => {
       const u = d.data();
@@ -98,7 +110,7 @@ async function main() {
     });
 
   if (admins.length === 0) {
-    console.log("Żaden administrator nie ma skonfigurowanego Chat Space ID — przerywam.");
+    console.log(`Brak administratorów z wysyłką o ${currentHour}:00 — przerywam.`);
     return;
   }
   console.log(`Odbiorcy: ${admins.map(a => a.name).join(", ")}`);

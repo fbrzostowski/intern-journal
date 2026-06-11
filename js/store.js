@@ -110,6 +110,10 @@ export async function updateUserChatSpaceId(uid, chatSpaceId) {
   await updateDoc(doc(db, "users", uid), { chatSpaceId });
 }
 
+export async function updateUserSendHour(uid, sendHour) {
+  await updateDoc(doc(db, "users", uid), { sendHour });
+}
+
 export async function deleteUser(uid) {
   const entriesSnap = await getDocs(
     query(collection(db, "entries"), where("uid", "==", uid))
