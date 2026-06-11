@@ -66,7 +66,8 @@ async function init() {
     }
 
     document.getElementById("task-title").textContent = task.title;
-    document.getElementById("btn-back").href = `project.html?name=${encodeURIComponent(task.projectName)}`;
+    const projectPage = role === "admin" ? "admin-project.html" : "project.html";
+    document.getElementById("btn-back").href = `${projectPage}?name=${encodeURIComponent(task.projectName)}`;
     document.title = `Zadanie: ${task.title}`;
 
     // "Dodaj wpis"
