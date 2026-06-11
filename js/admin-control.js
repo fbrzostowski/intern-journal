@@ -24,8 +24,21 @@ async function renderUsers() {
   const users = await getAllUsers();
   users.sort((a, b) => {
     const order = { setup: 0, admin: 1, intern: 2, inactive: 3 };
-    return (order[a.role] ?? 4) - (order[b.role] ?? 4)
-      || (a.name ?? a.email).localeCompare(b.name ?? b.email);
+    const roleDiff = (order[a.role] ?? 4) - (order[b.role] ?? 4);
+    if (roleDiff !== 0) return roleDiff;
+
+    if (a.role === "setup") {
+      // oczekujący: od najnowszych do najstarszych
+      const ta = a.createdAt?.toMillis?.() ?? 0;
+      const tb = b.createdAt?.toMillis?.() ?? 0;
+      return tb - ta;
+    }
+    if (a.role === "admin") {
+      // zalogowany użytkownik zawsze pierwszy
+      if (a.uid === currentUid) return -1;
+      if (b.uid === currentUid) return  1;
+    }
+    return (a.name ?? a.email).localeCompare(b.name ?? b.email, "pl");
   });
 
   list.innerHTML = "";
