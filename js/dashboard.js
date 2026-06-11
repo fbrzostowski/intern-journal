@@ -1,6 +1,6 @@
 import { requireAuth, logout } from "./auth.js";
 import {
-  subscribeUserEntries,
+  subscribeUserEntries, subscribeAllProjectNames,
   buildDailySummaries, buildProjectList, chartGridColor,
 } from "./store.js";
 
@@ -13,6 +13,7 @@ const CHART_DEFS = [
 
 let chart          = null;
 let currentEntries = [];
+let allProjectNames = [];
 
 async function init() {
   const { user } = await requireAuth("intern");
@@ -22,22 +23,41 @@ async function init() {
   if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
 
   document.getElementById("btn-logout").addEventListener("click", logout);
+  document.getElementById("project-goto-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = document.getElementById("project-goto-input").value.trim();
+    if (name) window.location.href = `project.html?name=${encodeURIComponent(name)}`;
+  });
   document.getElementById("btn-export").addEventListener("click", () => exportCSV(currentEntries));
+
+  subscribeAllProjectNames((names) => {
+    allProjectNames = names;
+    renderProjectsSection();
+  });
 
   subscribeUserEntries(user.uid, (entries) => {
     currentEntries = entries;
-    if (!entries.length) {
-      document.getElementById("status").textContent = "Brak wpisów — wejdź w projekt, utwórz zadanie i dodaj wpis.";
+    if (entries.length) {
+      document.getElementById("status").textContent = "";
+      renderStats(entries);
+      renderChart(buildDailySummaries(entries));
+      document.getElementById("btn-export").style.display = "";
+    } else {
+      document.getElementById("status").textContent = "Wejdź w projekt, utwórz zadanie i dodaj wpis.";
       document.getElementById("stats-bar").style.display = "none";
-      document.getElementById("projects-section").style.display = "none";
-      return;
     }
-    document.getElementById("status").textContent = "";
-    renderStats(entries);
-    renderChart(buildDailySummaries(entries));
-    renderProjects(buildProjectList(entries));
-    document.getElementById("btn-export").style.display = "";
+    renderProjectsSection();
   });
+}
+
+function renderProjectsSection() {
+  if (!allProjectNames.length) {
+    document.getElementById("projects-section").style.display = "none";
+    return;
+  }
+  const entryMap = {};
+  buildProjectList(currentEntries).forEach(p => { entryMap[p.name] = p; });
+  renderProjects(allProjectNames.map(name => entryMap[name] ?? { name, hours: 0, count: 0 }));
 }
 
 function renderStats(entries) {
@@ -137,7 +157,7 @@ function renderChart(summaries) {
 }
 
 function renderProjects(projects) {
-  const list   = document.getElementById("projects-list");
+  const list = document.getElementById("projects-list");
   list.innerHTML = "";
   const plural = n => n === 1 ? "wpis" : n < 5 ? "wpisy" : "wpisów";
   projects.forEach(p => {
@@ -147,9 +167,9 @@ function renderProjects(projects) {
     card.innerHTML = `
       <div class="project-card-header">
         <span class="project-name">${p.name}</span>
-        <span class="project-hours">${p.hours}h</span>
+        ${p.hours ? `<span class="project-hours">${p.hours}h</span>` : ""}
       </div>
-      <div class="project-meta">${p.count} ${plural(p.count)}</div>
+      <div class="project-meta">${p.count ? `${p.count} ${plural(p.count)}` : "Brak wpisów"}</div>
     `;
     list.appendChild(card);
   });

@@ -196,6 +196,15 @@ export function subscribeProjectTasks(projectName, callback) {
   });
 }
 
+export function subscribeAllProjectNames(callback) {
+  return onSnapshot(collection(db, "tasks"), (snap) => {
+    const names = [...new Set(
+      snap.docs.map(d => d.data().projectName).filter(Boolean)
+    )].sort();
+    callback(names);
+  });
+}
+
 // ── Users / Admin ──────────────────────────────────────────────────
 
 export async function updateUserRole(uid, role) {
