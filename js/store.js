@@ -73,10 +73,13 @@ export function subscribeUserEntries(uid, callback) {
 }
 
 export async function addEntry(uid, data) {
-  clearCache(); // wymuś świeże dane po dodaniu wpisu
+  clearCache();
+  const timestamp = data.date
+    ? new Date(data.date + "T12:00:00Z")
+    : new Date();
   await addDoc(collection(db, "entries"), {
     uid,
-    timestamp:   serverTimestamp(),
+    timestamp,
     title:       data.title,
     description: data.description,
     hours:       data.hours,
@@ -90,7 +93,7 @@ export async function addEntry(uid, data) {
 
 export async function updateEntry(entryId, data) {
   clearCache();
-  await updateDoc(doc(db, "entries", entryId), {
+  const updates = {
     title:       data.title,
     description: data.description,
     hours:       data.hours,
@@ -99,7 +102,9 @@ export async function updateEntry(entryId, data) {
     learning:    data.learning,
     difficulty:  data.difficulty,
     mood:        data.mood,
-  });
+  };
+  if (data.date) updates.timestamp = new Date(data.date + "T12:00:00Z");
+  await updateDoc(doc(db, "entries", entryId), updates);
 }
 
 export async function updateUserRole(uid, role) {

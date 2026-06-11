@@ -1,6 +1,7 @@
 import { requireAuth } from "./auth.js";
 import { subscribeUserEntries, chartGridColor } from "./store.js";
 import { setupEditModal, openEditModal } from "./edit-modal.js";
+import { setupAddModal, openAddModal } from "./add-entry-modal.js";
 
 const CATEGORIES = [
   { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
@@ -16,6 +17,8 @@ async function init() {
 
   const { user } = await requireAuth();
   setupEditModal();
+  setupAddModal(user.uid);
+  document.getElementById("btn-add-entry").addEventListener("click", () => openAddModal({ project: name }));
 
   document.title = `Projekt: ${name}`;
 

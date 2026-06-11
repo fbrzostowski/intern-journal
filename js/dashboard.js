@@ -173,6 +173,7 @@ function setupForm(uid) {
   function openModal() {
     form.reset();
     SLIDERS.forEach(key => { document.getElementById(`v-${key}`).textContent = "5"; });
+    document.getElementById("f-date").value = new Date().toISOString().slice(0, 10);
     errEl.textContent = "";
     modal.style.display = "flex";
   }
@@ -190,6 +191,7 @@ function setupForm(uid) {
     errEl.textContent = "";
     try {
       await addEntry(uid, {
+        date:        document.getElementById("f-date").value,
         title:       document.getElementById("f-title").value.trim(),
         description: document.getElementById("f-desc").value.trim(),
         hours:       parseFloat(document.getElementById("f-hours").value),
