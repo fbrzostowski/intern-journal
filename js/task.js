@@ -1,5 +1,5 @@
 import { requireAuth } from "./auth.js";
-import { subscribeTaskEntries, subscribeTask, updateTaskStatus, chartGridColor } from "./store.js";
+import { subscribeTaskEntries, subscribeTask, updateTaskStatus, getAllUsers, chartGridColor } from "./store.js";
 import { setupEditModal, openEditModal } from "./edit-modal.js";
 import { setupAddModal, openAddModal } from "./add-entry-modal.js";
 import { setupMembersModal, openMembersModal, updateMembersModal } from "./task-members-modal.js";
@@ -31,6 +31,12 @@ async function init() {
   setupEditModal();
   setupAddModal(user.uid);
   setupMembersModal();
+
+  const usersMap = new Map();
+  try {
+    const users = await getAllUsers();
+    users.forEach(u => usersMap.set(u.uid, u));
+  } catch (_) {}
 
   let currentAccess  = null;
   let pendingEntries = null;
@@ -115,7 +121,7 @@ async function init() {
 
     // Odblokuj oczekujące wpisy
     if (pendingEntries !== null) {
-      renderEntries(pendingEntries, user, currentAccess);
+      renderEntries(pendingEntries, user, currentAccess, usersMap);
       pendingEntries = null;
     }
   });
@@ -124,16 +130,15 @@ async function init() {
     if (currentAccess === null) {
       pendingEntries = entries;
     } else {
-      renderEntries(entries, user, currentAccess);
+      renderEntries(entries, user, currentAccess, usersMap);
     }
   });
 }
 
-function renderEntries(entries, user, access) {
+function renderEntries(entries, user, access, usersMap = new Map()) {
   const canEdit = access === "owner" || access === "write";
 
   if (!entries.length) {
-    const titleEl = document.getElementById("task-title");
     document.getElementById("total-hours").textContent =
       canEdit ? "Brak wpisów — kliknij «+ Dodaj wpis» żeby zacząć." : "Brak wpisów.";
     document.getElementById("charts-grid").innerHTML = "";
@@ -151,8 +156,14 @@ function renderEntries(entries, user, access) {
     const dateObj = new Date(entry.date + "T12:00:00");
     const dateStr = dateObj.toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
 
-    // Przycisk edycji tylko dla własnych wpisów z prawem zapisu
-    const showEdit = canEdit && entry.uid === user.uid;
+    const showEdit   = canEdit && entry.uid === user.uid;
+    const authorData = usersMap.get(entry.uid);
+    const authorName = authorData
+      ? (authorData.displayName || authorData.name || authorData.email || "Stażysta")
+      : "Stażysta";
+    const authorAvatar = authorData?.photoURL
+      ? `<img src="${authorData.photoURL}" class="entry-author-avatar" referrerpolicy="no-referrer" alt="">`
+      : `<div class="entry-author-initials">${authorName[0].toUpperCase()}</div>`;
 
     const wrap = document.createElement("div");
     wrap.className = "chart-wrap entry-card";
@@ -172,7 +183,13 @@ function renderEntries(entries, user, access) {
             ` : ""}
           </div>
         </div>
-        <a href="day.html?date=${entry.date}" class="entry-date-link">${dateStr}</a>
+        <div class="entry-meta">
+          <a href="day.html?date=${entry.date}" class="entry-date-link">${dateStr}</a>
+          <div class="entry-author">
+            ${authorAvatar}
+            <span class="entry-author-name">${authorName}</span>
+          </div>
+        </div>
         ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ""}
       </div>
       <div class="entry-canvas-wrap">

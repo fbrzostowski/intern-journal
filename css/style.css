@@ -260,6 +260,44 @@ header h1 { font-size: 18px; font-weight: 600; }
 }
 .entry-project-link:hover { background: var(--accent); color: white; border-color: var(--accent); }
 
+.entry-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.entry-author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.entry-author-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.entry-author-initials {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.entry-author-name {
+  font-size: 11px;
+  color: var(--text-3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .entry-header-right {
   display: flex;
   align-items: center;

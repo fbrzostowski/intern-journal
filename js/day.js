@@ -49,9 +49,14 @@ async function init() {
     const grid = document.getElementById('charts-grid');
     grid.innerHTML = '';
 
+    const authorName   = user.displayName || user.email || "Stażysta";
+    const authorAvatar = user.photoURL
+      ? `<img src="${user.photoURL}" class="entry-author-avatar" referrerpolicy="no-referrer" alt="">`
+      : `<div class="entry-author-initials">${authorName[0].toUpperCase()}</div>`;
+
     dayEntries.forEach((entry, i) => {
       const taskUrl = entry.taskId
-        ? `task.html?id=${entry.taskId}&title=${encodeURIComponent(entry.taskTitle)}&project=${encodeURIComponent(entry.projectName)}&owner=${user.uid}`
+        ? `task.html?id=${entry.taskId}&title=${encodeURIComponent(entry.taskTitle)}&project=${encodeURIComponent(entry.projectName)}`
         : `project.html?name=${encodeURIComponent(entry.projectName)}`;
 
       const wrap = document.createElement('div');
@@ -70,7 +75,13 @@ async function init() {
               </button>
             </div>
           </div>
-          <a href="${taskUrl}" class="entry-project-link">${entry.taskTitle || entry.projectName}</a>
+          <div class="entry-meta">
+            <a href="${taskUrl}" class="entry-project-link">${entry.taskTitle || entry.projectName}</a>
+            <div class="entry-author">
+              ${authorAvatar}
+              <span class="entry-author-name">${authorName}</span>
+            </div>
+          </div>
           ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
         </div>
         <div class="entry-canvas-wrap">
