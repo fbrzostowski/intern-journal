@@ -2,9 +2,8 @@ name: Podsumowanie dnia → Google Chat
 
 on:
   schedule:
-    # Co 15 min, 12:00–18:00 UTC = 14:00–20:00 CEST (lato) / 13:00–19:00 CET (zima)
-    # Skrypt sprawdza per-admin czy bieżący czas warszawski mieści się w oknie ±7 min
-    - cron: '*/15 12-18 * * 1-5'
+    # Co 15 min całą dobę — skrypt wysyła tylko do adminów z pasującą godziną (±7 min)
+    - cron: '*/15 * * * *'
   workflow_dispatch:   # możliwość ręcznego uruchomienia z zakładki Actions
 
 jobs:
