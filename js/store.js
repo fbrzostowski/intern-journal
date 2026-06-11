@@ -2,7 +2,7 @@ import { db } from "./config.js";
 import {
   collection, query, where, orderBy,
   addDoc, updateDoc, deleteDoc, doc, getDocs, writeBatch,
-  onSnapshot, serverTimestamp,
+  onSnapshot, serverTimestamp, deleteField,
 } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
 const CACHE_KEY = "dzienniczek_entries";
@@ -153,6 +153,7 @@ export async function addTask(uid, data) {
     title:        data.title,
     description:  data.description || "",
     status:       data.status || "todo",
+    members:      {},
     createdAt:    serverTimestamp(),
   });
 }
@@ -190,6 +191,8 @@ export function subscribeProjectTasks(projectName, callback) {
         projectName: data.projectName || "",
         title:       data.title       || "",
         description: data.description || "",
+        status:      data.status      || "todo",
+        members:     data.members     || {},
         createdAt:   data.createdAt?.toDate() ?? new Date(),
       };
     });
@@ -208,6 +211,7 @@ export function subscribeTask(taskId, callback) {
       title:       data.title       || "",
       description: data.description || "",
       status:      data.status      || "todo",
+      members:     data.members     || {},
       createdAt:   data.createdAt?.toDate() ?? new Date(),
     });
   });
@@ -215,6 +219,21 @@ export function subscribeTask(taskId, callback) {
 
 export async function updateTaskStatus(taskId, status) {
   await updateDoc(doc(db, "tasks", taskId), { status });
+}
+
+export async function updateTaskMembers(taskId, uid, role) {
+  if (role === null) {
+    await updateDoc(doc(db, "tasks", taskId), { [`members.${uid}`]: deleteField() });
+  } else {
+    await updateDoc(doc(db, "tasks", taskId), { [`members.${uid}`]: role });
+  }
+}
+
+export async function transferTaskOwnership(taskId, newOwnerUid) {
+  await updateDoc(doc(db, "tasks", taskId), {
+    uid: newOwnerUid,
+    [`members.${newOwnerUid}`]: deleteField(),
+  });
 }
 
 export function subscribeAllProjectNames(callback) {

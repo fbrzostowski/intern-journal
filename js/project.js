@@ -7,7 +7,7 @@ async function init() {
   const name   = params.get("name");
   if (!name) { window.location.href = "index.html"; return; }
 
-  const { user } = await requireAuth();
+  const { user, role } = await requireAuth();
 
   document.getElementById("user-name").textContent = user.displayName ?? user.email;
   const avatar = document.getElementById("user-avatar");
@@ -40,8 +40,8 @@ async function init() {
   });
 
   function render(allTasks, userEntries) {
-    const list   = document.getElementById("tasks-list");
-    const empty  = document.getElementById("tasks-empty");
+    const list    = document.getElementById("tasks-list");
+    const empty   = document.getElementById("tasks-empty");
     const totalEl = document.getElementById("total-hours");
 
     if (!allTasks.length) {
@@ -52,7 +52,6 @@ async function init() {
     }
     empty.style.display = "none";
 
-    // Sumaryczne godziny własnych wpisów w tym projekcie
     const myProjectHours = userEntries
       .filter(e => e.projectName === name)
       .reduce((s, e) => s + e.hours, 0);
@@ -60,7 +59,6 @@ async function init() {
       ? `${Math.round(myProjectHours * 10) / 10}h Twoich godzin`
       : "";
 
-    // Mapa taskId → godziny z wpisów zalogowanego
     const hoursByTask = {};
     userEntries.forEach(e => {
       if (!e.taskId) return;
@@ -69,15 +67,23 @@ async function init() {
 
     list.innerHTML = "";
 
-    // Własne zadania najpierw, potem cudze
-    const ownTasks   = allTasks.filter(t => t.uid === user.uid);
-    const otherTasks = allTasks.filter(t => t.uid !== user.uid);
+    const ownTasks    = allTasks.filter(t => t.uid === user.uid);
+    const memberTasks = allTasks.filter(t => t.uid !== user.uid && t.members?.[user.uid]);
+    const otherTasks  = allTasks.filter(t => t.uid !== user.uid && !t.members?.[user.uid]);
 
     if (ownTasks.length) {
       const section = document.createElement("div");
       section.className = "tasks-group";
       section.innerHTML = `<h3 class="tasks-group-label">Twoje zadania</h3>`;
       ownTasks.forEach(task => section.appendChild(buildOwnCard(task, hoursByTask)));
+      list.appendChild(section);
+    }
+
+    if (memberTasks.length) {
+      const section = document.createElement("div");
+      section.className = "tasks-group";
+      section.innerHTML = `<h3 class="tasks-group-label">Zadania z dostępem</h3>`;
+      memberTasks.forEach(task => section.appendChild(buildMemberCard(task, hoursByTask, usersMap)));
       list.appendChild(section);
     }
 
@@ -91,9 +97,9 @@ async function init() {
   }
 
   function buildOwnCard(task, hoursByTask) {
-    const hours    = hoursByTask[task.id] || 0;
+    const hours   = hoursByTask[task.id] || 0;
     const hoursStr = hours ? `${Math.round(hours * 10) / 10}h` : "0h";
-    const taskUrl  = `task.html?id=${task.id}&title=${encodeURIComponent(task.title)}&project=${encodeURIComponent(name)}&owner=${user.uid}`;
+    const taskUrl = `task.html?id=${task.id}&title=${encodeURIComponent(task.title)}&project=${encodeURIComponent(name)}`;
 
     const a = document.createElement("a");
     a.href      = taskUrl;
@@ -119,21 +125,52 @@ async function init() {
       e.preventDefault();
       e.stopPropagation();
       if (!confirm(`Usunąć zadanie „${task.title}" wraz ze wszystkimi wpisami?`)) return;
-      try {
-        await deleteTask(task.id);
-      } catch (err) {
-        alert("Błąd usuwania: " + err.message);
-      }
+      try { await deleteTask(task.id); }
+      catch (err) { alert("Błąd usuwania: " + err.message); }
     });
 
     return a;
   }
 
-  function buildOtherCard(task, usersMap) {
-    const owner    = usersMap.get(task.uid);
+  function buildMemberCard(task, hoursByTask, usersMap) {
+    const hours    = hoursByTask[task.id] || 0;
+    const hoursStr = hours ? `${Math.round(hours * 10) / 10}h` : "";
+    const memberRole = task.members[user.uid];
+    const roleLabel  = memberRole === "write" ? "Edycja" : "Odczyt";
+    const taskUrl    = `task.html?id=${task.id}&title=${encodeURIComponent(task.title)}&project=${encodeURIComponent(name)}`;
+
+    const owner     = usersMap.get(task.uid);
     const ownerName = owner ? (owner.displayName || owner.name || owner.email || "Stażysta") : "Stażysta";
     const ownerAvatar = owner?.photoURL
-      ? `<img src="${owner.photoURL}" class="task-owner-avatar" alt="">`
+      ? `<img src="${owner.photoURL}" class="task-owner-avatar" alt="" referrerpolicy="no-referrer">`
+      : `<span class="task-owner-initials">${ownerName[0].toUpperCase()}</span>`;
+
+    const a = document.createElement("a");
+    a.href      = taskUrl;
+    a.className = "task-card task-card--member";
+    a.innerHTML = `
+      <div class="task-card-header">
+        <span class="task-name">${task.title}</span>
+        <div class="task-card-actions">
+          ${statusBadge(task.status)}
+          ${hoursStr ? `<span class="task-hours">${hoursStr}</span>` : ""}
+          <span class="member-access-badge">${roleLabel}</span>
+        </div>
+      </div>
+      ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
+      <div class="task-owner">
+        ${ownerAvatar}
+        <span class="task-owner-name">${ownerName}</span>
+      </div>
+    `;
+    return a;
+  }
+
+  function buildOtherCard(task, usersMap) {
+    const owner     = usersMap.get(task.uid);
+    const ownerName = owner ? (owner.displayName || owner.name || owner.email || "Stażysta") : "Stażysta";
+    const ownerAvatar = owner?.photoURL
+      ? `<img src="${owner.photoURL}" class="task-owner-avatar" alt="" referrerpolicy="no-referrer">`
       : `<span class="task-owner-initials">${ownerName[0].toUpperCase()}</span>`;
 
     const div = document.createElement("div");
@@ -161,9 +198,9 @@ async function init() {
 
 function statusBadge(status) {
   const map = {
-    todo:       { label: "Nie zrobione",   cls: "status-todo" },
-    reviewing:  { label: "Do sprawdzenia", cls: "status-reviewing" },
-    done:       { label: "Wykonane",       cls: "status-done" },
+    todo:      { label: "Nie zrobione",   cls: "status-todo" },
+    reviewing: { label: "Do sprawdzenia", cls: "status-reviewing" },
+    done:      { label: "Wykonane",       cls: "status-done" },
   };
   const s = map[status] ?? map.todo;
   return `<span class="task-status-badge ${s.cls}">${s.label}</span>`;
