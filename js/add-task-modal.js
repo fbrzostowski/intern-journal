@@ -31,11 +31,6 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
         </div>
 
         ${isAdmin ? `
-          <div class="form-group">
-            <label for="tf-assignee">Wykonawca</label>
-            <select id="tf-assignee"></select>
-          </div>
-
           <div class="task-members-setup">
             <p class="members-section-label">Dostęp do zadania</p>
             <div id="tf-members-list"></div>
@@ -67,11 +62,6 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
   modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
   if (isAdmin) {
-    document.getElementById("tf-assignee").addEventListener("change", () => {
-      renderMembersList();
-      refreshNewMemberSelect();
-    });
-
     document.getElementById("btn-add-member-inline").addEventListener("click", () => {
       const uid   = document.getElementById("tf-new-member").value;
       const role  = document.getElementById("tf-new-role").value;
@@ -93,14 +83,8 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
     btn.textContent = "Zapisywanie…";
     err.textContent = "";
 
-    let taskOwnerUid = ownerUid;
-    if (contextUsers) {
-      const sel = document.getElementById("tf-assignee");
-      if (sel?.value) taskOwnerUid = sel.value;
-    }
-
     try {
-      const taskRef = await addTask(taskOwnerUid, {
+      const taskRef = await addTask(ownerUid, {
         projectName:  projectCtx,
         title:        document.getElementById("tf-title").value.trim(),
         description:  document.getElementById("tf-desc").value.trim(),
@@ -119,14 +103,13 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
   });
 }
 
-export function openAddTaskModal(projectName, { defaultUid } = {}) {
+export function openAddTaskModal(projectName) {
   projectCtx    = projectName;
   pendingMembers = [];
   document.getElementById("task-form").reset();
   document.getElementById("task-form-error").textContent = "";
 
   if (contextUsers) {
-    populateAssigneeSelect(defaultUid);
     renderMembersList();
     refreshNewMemberSelect();
     if (document.getElementById("task-members-error")) {
@@ -139,37 +122,11 @@ export function openAddTaskModal(projectName, { defaultUid } = {}) {
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function populateAssigneeSelect(defaultUid) {
-  const sel = document.getElementById("tf-assignee");
-  sel.innerHTML = "";
-
-  const interns = contextUsers.filter(u => u.role === "intern" && u.uid !== ownerUid);
-  interns.forEach(u => {
-    const opt = document.createElement("option");
-    opt.value       = u.uid;
-    opt.textContent = displayName(u);
-    sel.appendChild(opt);
-  });
-
-  const meData = contextUsers.find(u => u.uid === ownerUid);
-  const meOpt  = document.createElement("option");
-  meOpt.value       = ownerUid;
-  meOpt.textContent = `${displayName(meData)} (Ty)`;
-  sel.appendChild(meOpt);
-
-  if (defaultUid && sel.querySelector(`option[value="${defaultUid}"]`)) {
-    sel.value = defaultUid;
-  } else if (interns.length) {
-    sel.value = interns[0].uid;
-  }
-}
-
 function refreshNewMemberSelect() {
   const sel = document.getElementById("tf-new-member");
   if (!sel) return;
 
-  const currentOwner = document.getElementById("tf-assignee")?.value || ownerUid;
-  const excluded     = new Set([ownerUid, currentOwner, ...pendingMembers.map(m => m.uid)]);
+  const excluded = new Set([ownerUid, ...pendingMembers.map(m => m.uid)]);
   const available    = contextUsers.filter(u =>
     !excluded.has(u.uid) && (u.role === "intern" || !u.role)
   );

@@ -39,7 +39,7 @@ async function init() {
 
   setupAddTaskModal(user.uid, { allUsers: users });
   document.getElementById('btn-add-task').addEventListener('click', () =>
-    openAddTaskModal(projectName, { defaultUid: selectedUid })
+    openAddTaskModal(projectName)
   );
 
   updateBackLink();
