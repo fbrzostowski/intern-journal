@@ -11,7 +11,7 @@
 <body>
   <header>
     <a href="index.html" class="btn-back">← Wróć</a>
-    <div class="day-nav">
+    <div class="day-nav" style="flex:1;justify-content:center">
       <a id="nav-prev" class="nav-arrow" href="#">‹</a>
       <div>
         <h1 id="day-title"></h1>
@@ -19,10 +19,12 @@
       </div>
       <a id="nav-next" class="nav-arrow" href="#">›</a>
     </div>
-    <button id="btn-add-entry" class="btn-add">+ Dodaj wpis</button>
-    <div class="header-user">
-      <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
-      <span id="user-name" class="user-name"></span>
+    <div class="header-actions">
+      <button id="btn-add-entry" class="btn-add">+ Dodaj wpis</button>
+      <div class="header-user">
+        <img id="user-avatar" class="user-avatar" src="" alt="" style="display:none">
+        <span id="user-name" class="user-name"></span>
+      </div>
     </div>
   </header>
 
