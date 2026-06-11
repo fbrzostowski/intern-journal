@@ -70,7 +70,7 @@ async function renderUsers() {
           </button>
         </div>
       </div>
-      ${isAdmin ? `
+      ${isSelf ? `
       <div class="user-row-chat">
         <span class="user-row-chat-label">Google Chat Space ID</span>
         <input type="text" class="chat-space-id-input"
@@ -118,34 +118,19 @@ async function renderUsers() {
         }
       });
 
-      const chatInput = row.querySelector(".chat-space-id-input");
-      if (chatInput) {
-        let saveTimer = null;
-        const statusEl = row.querySelector(".chat-space-id-status");
-        chatInput.addEventListener("input", () => {
-          clearTimeout(saveTimer);
-          statusEl.textContent = "";
-          saveTimer = setTimeout(async () => {
-            const val = chatInput.value.trim();
-            try {
-              await updateUserChatSpaceId(u.uid, val);
-              statusEl.textContent = "Zapisano.";
-              statusEl.style.color = "var(--green)";
-              setTimeout(() => { statusEl.textContent = ""; }, 2000);
-            } catch (e) {
-              statusEl.textContent = "Błąd zapisu";
-              statusEl.style.color = "#dc2626";
-            }
-          }, 800);
-        });
-      }
+    }
 
-      const sendHourSelect = row.querySelector(".send-hour-select");
-      if (sendHourSelect) {
-        const statusEl = row.querySelector(".send-hour-status");
-        sendHourSelect.addEventListener("change", async () => {
+    const chatInput = row.querySelector(".chat-space-id-input");
+    if (chatInput) {
+      let saveTimer = null;
+      const statusEl = row.querySelector(".chat-space-id-status");
+      chatInput.addEventListener("input", () => {
+        clearTimeout(saveTimer);
+        statusEl.textContent = "";
+        saveTimer = setTimeout(async () => {
+          const val = chatInput.value.trim();
           try {
-            await updateUserSendHour(u.uid, parseInt(sendHourSelect.value, 10));
+            await updateUserChatSpaceId(u.uid, val);
             statusEl.textContent = "Zapisano.";
             statusEl.style.color = "var(--green)";
             setTimeout(() => { statusEl.textContent = ""; }, 2000);
@@ -153,8 +138,24 @@ async function renderUsers() {
             statusEl.textContent = "Błąd zapisu";
             statusEl.style.color = "#dc2626";
           }
-        });
-      }
+        }, 800);
+      });
+    }
+
+    const sendHourSelect = row.querySelector(".send-hour-select");
+    if (sendHourSelect) {
+      const statusEl = row.querySelector(".send-hour-status");
+      sendHourSelect.addEventListener("change", async () => {
+        try {
+          await updateUserSendHour(u.uid, parseInt(sendHourSelect.value, 10));
+          statusEl.textContent = "Zapisano.";
+          statusEl.style.color = "var(--green)";
+          setTimeout(() => { statusEl.textContent = ""; }, 2000);
+        } catch (e) {
+          statusEl.textContent = "Błąd zapisu";
+          statusEl.style.color = "#dc2626";
+        }
+      });
     }
 
     list.appendChild(row);
