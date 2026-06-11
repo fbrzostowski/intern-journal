@@ -1,11 +1,11 @@
 import { addTask, updateTaskMembers } from "./store.js";
 
-let modal           = null;
-let ownerUid        = null; // admin uid
-let projectCtx      = null;
-let contextUsers    = null;
-let pendingMembers  = []; // [{ uid, role }]
-let pendingOwnerUid = null; // kto będzie task.uid (domyślnie pierwszy dodany)
+let modal          = null;
+let ownerUid       = null; // admin uid
+let projectCtx     = null;
+let contextUsers   = null;
+let pendingOwner   = null; // { uid } — kto będzie task.uid
+let pendingMembers = []; // [{ uid, role }] — tylko nie-właściciele
 
 const CROWN_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
   <path d="M2 19h20v2H2v-2zM2 6l5 8 5-6 5 6 5-8v11H2V6z"/>
@@ -37,8 +37,14 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
 
         ${isAdmin ? `
           <div class="task-members-setup">
-            <p class="members-section-label">Dostęp do zadania</p>
-            <div id="tf-members-list"></div>
+            <div class="members-setup-owner" id="tf-owner-section">
+              <p class="members-section-label">Właściciel</p>
+              <div id="tf-owner-row"></div>
+            </div>
+            <div id="tf-members-section">
+              <p class="members-section-label">Dostęp do zadania</p>
+              <div id="tf-members-list"></div>
+            </div>
             <div class="add-member-inline" id="add-member-inline-row">
               <select id="tf-new-member" class="add-member-select">
                 <option value="">Wybierz stażystę…</option>
@@ -73,11 +79,13 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
       const errEl = document.getElementById("task-members-error");
       if (!uid) { errEl.textContent = "Wybierz stażystę."; return; }
       errEl.textContent = "";
-      pendingMembers.push({ uid, role });
-      // Pierwszy dodany = domyślny właściciel
-      if (!pendingOwnerUid) pendingOwnerUid = uid;
-      renderMembersList();
-      refreshNewMemberSelect();
+      // Pierwszy dodany zostaje właścicielem, kolejni trafiają do members
+      if (!pendingOwner) {
+        pendingOwner = { uid };
+      } else {
+        pendingMembers.push({ uid, role });
+      }
+      renderAll();
       document.getElementById("tf-new-member").value = "";
     });
   }
@@ -90,8 +98,7 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
     btn.textContent = "Zapisywanie…";
     err.textContent = "";
 
-    // task.uid = wybrany właściciel lub admin jeśli nikt nie dodany
-    const taskOwner = (contextUsers && pendingOwnerUid) ? pendingOwnerUid : ownerUid;
+    const taskOwner = (contextUsers && pendingOwner) ? pendingOwner.uid : ownerUid;
 
     try {
       const taskRef = await addTask(taskOwner, {
@@ -100,11 +107,8 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
         description:  document.getElementById("tf-desc").value.trim(),
         status:       "todo",
       });
-      // Dodaj pozostałych jako members (nie właściciela)
       for (const { uid, role } of pendingMembers) {
-        if (uid !== taskOwner) {
-          await updateTaskMembers(taskRef.id, uid, role);
-        }
+        await updateTaskMembers(taskRef.id, uid, role);
       }
       closeModal();
     } catch (error) {
@@ -117,15 +121,14 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
 }
 
 export function openAddTaskModal(projectName) {
-  projectCtx      = projectName;
-  pendingMembers  = [];
-  pendingOwnerUid = null;
+  projectCtx     = projectName;
+  pendingOwner   = null;
+  pendingMembers = [];
   document.getElementById("task-form").reset();
   document.getElementById("task-form-error").textContent = "";
 
   if (contextUsers) {
-    renderMembersList();
-    refreshNewMemberSelect();
+    renderAll();
     const errEl = document.getElementById("task-members-error");
     if (errEl) errEl.textContent = "";
   }
@@ -133,39 +136,68 @@ export function openAddTaskModal(projectName) {
   modal.style.display = "flex";
 }
 
-// ── Helpers ────────────────────────────────────────────────────
+// ── Render ─────────────────────────────────────────────────────
 
-function refreshNewMemberSelect() {
-  const sel = document.getElementById("tf-new-member");
-  if (!sel) return;
+function renderAll() {
+  renderOwnerRow();
+  renderMembersList();
+  refreshNewMemberSelect();
+}
 
-  const excluded  = new Set([ownerUid, ...pendingMembers.map(m => m.uid)]);
-  const available = contextUsers.filter(u =>
-    !excluded.has(u.uid) && (u.role === "intern" || !u.role)
-  );
+function renderOwnerRow() {
+  const row     = document.getElementById("tf-owner-row");
+  const section = document.getElementById("tf-owner-section");
+  if (!row) return;
 
-  sel.innerHTML = `<option value="">Wybierz stażystę…</option>`;
-  available.forEach(u => {
-    const opt = document.createElement("option");
-    opt.value       = u.uid;
-    opt.textContent = displayName(u);
-    sel.appendChild(opt);
+  if (!pendingOwner) {
+    section.style.display = "none";
+    row.innerHTML = "";
+    return;
+  }
+  section.style.display = "";
+
+  const ud   = contextUsers.find(u => u.uid === pendingOwner.uid);
+  const name = displayName(ud);
+  const avatarHtml = ud?.photoURL
+    ? `<img src="${ud.photoURL}" class="member-avatar" referrerpolicy="no-referrer" alt="">`
+    : `<div class="member-initials">${name[0].toUpperCase()}</div>`;
+
+  row.innerHTML = `
+    <div class="member-row">
+      <div class="member-info">
+        ${avatarHtml}
+        <span class="member-name">${name}</span>
+      </div>
+      <div class="member-actions">
+        <span class="member-role-badge owner-badge">Właściciel</span>
+        <button type="button" class="btn-remove-member" id="btn-remove-owner" title="Usuń właściciela">✕</button>
+      </div>
+    </div>
+  `;
+
+  row.querySelector("#btn-remove-owner").addEventListener("click", () => {
+    // Przekaż własność pierwszemu memberowi lub wyzeruj
+    if (pendingMembers.length) {
+      pendingOwner = { uid: pendingMembers[0].uid };
+      pendingMembers.shift();
+    } else {
+      pendingOwner = null;
+    }
+    renderAll();
   });
-
-  const row = document.getElementById("add-member-inline-row");
-  if (row) row.style.display = available.length ? "" : "none";
 }
 
 function renderMembersList() {
-  const list = document.getElementById("tf-members-list");
+  const list    = document.getElementById("tf-members-list");
+  const section = document.getElementById("tf-members-section");
   if (!list) return;
+
   list.innerHTML = "";
+  section.style.display = pendingMembers.length ? "" : "none";
 
   pendingMembers.forEach(({ uid, role }, idx) => {
-    const ud      = contextUsers.find(u => u.uid === uid);
-    const name    = displayName(ud);
-    const isOwner = uid === pendingOwnerUid;
-
+    const ud   = contextUsers.find(u => u.uid === uid);
+    const name = displayName(ud);
     const avatarHtml = ud?.photoURL
       ? `<img src="${ud.photoURL}" class="member-avatar" referrerpolicy="no-referrer" alt="">`
       : `<div class="member-initials">${name[0].toUpperCase()}</div>`;
@@ -178,8 +210,7 @@ function renderMembersList() {
         <span class="member-name">${name}</span>
       </div>
       <div class="member-actions">
-        <button type="button" class="btn-set-owner${isOwner ? " btn-set-owner--active" : ""}"
-          data-uid="${uid}" title="${isOwner ? "Właściciel zadania" : "Ustaw jako właściciela"}">
+        <button type="button" class="btn-set-owner" data-uid="${uid}" title="Ustaw jako właściciela">
           ${CROWN_SVG}
         </button>
         <select class="member-role-select" data-idx="${idx}">
@@ -190,26 +221,54 @@ function renderMembersList() {
       </div>
     `;
 
+    // Kliknięcie korony → ten staje się właścicielem, stary właściciel do members
     row.querySelector(".btn-set-owner").addEventListener("click", () => {
-      pendingOwnerUid = uid;
-      renderMembersList();
+      const oldOwner = pendingOwner;
+      pendingOwner   = { uid };
+      pendingMembers.splice(idx, 1);
+      if (oldOwner) pendingMembers.unshift({ uid: oldOwner.uid, role: "write" });
+      renderAll();
     });
+
     row.querySelector(".member-role-select").addEventListener("change", (e) => {
       pendingMembers[+e.target.dataset.idx].role = e.target.value;
     });
+
     row.querySelector(".btn-remove-member").addEventListener("click", (e) => {
-      const i = +e.target.closest("[data-idx]").dataset.idx;
-      const removed = pendingMembers.splice(i, 1)[0];
-      if (pendingOwnerUid === removed.uid) {
-        pendingOwnerUid = pendingMembers.length ? pendingMembers[0].uid : null;
-      }
-      renderMembersList();
-      refreshNewMemberSelect();
+      pendingMembers.splice(+e.target.closest("[data-idx]").dataset.idx, 1);
+      renderAll();
     });
 
     list.appendChild(row);
   });
 }
+
+function refreshNewMemberSelect() {
+  const sel = document.getElementById("tf-new-member");
+  if (!sel) return;
+
+  const excluded  = new Set([
+    ownerUid,
+    ...(pendingOwner ? [pendingOwner.uid] : []),
+    ...pendingMembers.map(m => m.uid),
+  ]);
+  const available = contextUsers.filter(u =>
+    !excluded.has(u.uid) && (u.role === "intern" || !u.role)
+  );
+
+  sel.innerHTML = `<option value="">Wybierz stażystę…</option>`;
+  available.forEach(u => {
+    const opt = document.createElement("option");
+    opt.value       = u.uid;
+    opt.textContent = displayName(u);
+    sel.appendChild(opt);
+  });
+
+  const addRow = document.getElementById("add-member-inline-row");
+  if (addRow) addRow.style.display = available.length ? "" : "none";
+}
+
+// ── Utils ──────────────────────────────────────────────────────
 
 function displayName(u) {
   if (!u) return "Stażysta";

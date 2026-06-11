@@ -942,6 +942,8 @@ header h1 { font-size: 18px; font-weight: 600; }
 .task-members-setup .members-section-label {
   margin-bottom: 8px;
 }
+.members-setup-owner { margin-bottom: 14px; }
+#tf-members-section  { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px; }
 .add-member-inline {
   display: flex;
   gap: 8px;
