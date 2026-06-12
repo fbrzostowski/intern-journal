@@ -11,7 +11,7 @@
 <body>
   <header>
     <a id="btn-back" href="index.html" class="btn-back">← Wróć</a>
-    <div style="flex:1">
+    <div class="task-title-wrap">
       <h1 id="task-title"></h1>
       <span id="total-hours" class="total-hours"></span>
     </div>
@@ -32,7 +32,26 @@
     </div>
   </header>
 
-  <div class="charts-grid" id="charts-grid"></div>
+  <div class="view-tabs">
+    <button class="view-tab view-tab--active" data-view="summary">Podsumowanie</button>
+    <button class="view-tab" data-view="all">Wszystko</button>
+    <div id="intern-picker-wrap" class="view-tabs-picker" style="display:none"></div>
+  </div>
+
+  <div id="summary-section" class="summary-section">
+    <p class="summary-sub">Średnia ważona ocen (wg liczby godzin) dla każdego stażysty.</p>
+    <div class="summary-grid" id="summary-grid"></div>
+  </div>
+
+  <div id="all-section" style="display:none">
+    <div class="period-bar">
+      <button class="period-btn" data-period="all">Wszystkie</button>
+      <button class="period-btn" data-period="month">W tym miesiącu</button>
+      <button class="period-btn" data-period="week">W tym tygodniu</button>
+    </div>
+
+    <div class="charts-grid" id="charts-grid"></div>
+  </div>
 
   <script type="module" src="js/task.js"></script>
 </body>

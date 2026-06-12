@@ -10,11 +10,20 @@
 <body>
   <header>
     <a href="index.html" class="btn-back">← Wróć</a>
-    <div style="flex:1">
+    <div class="project-title-wrap">
       <h1 id="project-title"></h1>
       <span id="total-hours" class="total-hours"></span>
     </div>
     <div class="header-actions">
+      <button id="btn-project-access" class="btn-secondary btn-manage-members" style="display:none">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Dostęp
+      </button>
+      <button id="btn-finish-project" class="btn-finish" style="display:none">Zakończ projekt</button>
       <button id="btn-add-task" class="btn-add">+ Dodaj zadanie</button>
       <div class="header-user">
         <img id="user-avatar" class="user-avatar" src="" alt="" referrerpolicy="no-referrer" style="display:none">
