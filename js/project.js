@@ -1,7 +1,54 @@
 import { requireAuth } from "./auth.js";
-import { subscribeProjectTasks, subscribeUserEntries, getAllUsers, deleteTask, updateTaskStatus } from "./store.js";
-import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
+import { subscribeProjectTasks, subscribeUserEntries, getAllUsers, deleteTask, updateTaskStatus, subscribeProject, renameProject } from "./store.js";
+import { setupAddTaskModal, openAddTaskModal, updateAddTaskModalUsers } from "./add-task-modal.js";
 import { setupMembersModal, openMembersModal, updateMembersModal } from "./task-members-modal.js";
+import { setupProjectMembersModal, openProjectMembersModal, updateProjectMembersModal } from "./project-members-modal.js";
+import { setupFinishProjectModal, openFinishProjectModal } from "./finish-project-modal.js";
+
+let confirmModal = null;
+
+function setupConfirmModal() {
+  confirmModal = document.createElement("div");
+  confirmModal.className = "modal-overlay";
+  confirmModal.style.display = "none";
+  confirmModal.innerHTML = `
+    <div class="modal-box" style="max-width:420px">
+      <h2 style="margin-bottom:12px">Uwaga</h2>
+      <p id="confirm-modal-msg" style="margin-bottom:24px;color:var(--text-secondary,#555);line-height:1.5"></p>
+      <div class="form-actions">
+        <button type="button" id="btn-confirm-cancel" class="btn-secondary">Anuluj</button>
+        <button type="button" id="btn-confirm-ok" class="btn-add">Kontynuuj</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(confirmModal);
+}
+
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    document.getElementById("confirm-modal-msg").textContent = message;
+
+    const btnOk     = document.getElementById("btn-confirm-ok");
+    const btnCancel = document.getElementById("btn-confirm-cancel");
+
+    function finish(result) {
+      confirmModal.style.display = "none";
+      btnOk.removeEventListener("click", onOk);
+      btnCancel.removeEventListener("click", onCancel);
+      confirmModal.removeEventListener("click", onOverlay);
+      resolve(result);
+    }
+
+    function onOk()       { finish(true);  }
+    function onCancel()   { finish(false); }
+    function onOverlay(e) { if (e.target === confirmModal) finish(false); }
+
+    btnOk.addEventListener("click", onOk);
+    btnCancel.addEventListener("click", onCancel);
+    confirmModal.addEventListener("click", onOverlay);
+    confirmModal.style.display = "flex";
+  });
+}
 
 const PEOPLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <circle cx="9" cy="7" r="4"/>
@@ -9,6 +56,53 @@ const PEOPLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" 
   <circle cx="19" cy="19" r="2"/>
   <path d="M19 15v2"/><path d="M19 21v2"/><path d="M15 19h2"/><path d="M21 19h2"/>
 </svg>`;
+
+function setupTitleEditing(currentName, getProject, getCanEdit) {
+  const h1 = document.getElementById("project-title");
+
+  h1.addEventListener("click", () => {
+    if (!getCanEdit()) return;
+    const project = getProject();
+    if (!project?.id) return;
+
+    const oldName = project.name ?? currentName;
+
+    const input = document.createElement("input");
+    input.type      = "text";
+    input.value     = oldName;
+    input.className = "project-title-input";
+    h1.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    const cancel = () => {
+      if (done) return;
+      done = true;
+      input.replaceWith(h1);
+    };
+    const save = async () => {
+      if (done) return;
+      const newName = input.value.trim();
+      if (!newName || newName === oldName) { cancel(); return; }
+      done = true;
+      input.disabled = true;
+      try {
+        await renameProject(project.id, oldName, newName);
+        window.location.href = `project.html?name=${encodeURIComponent(newName)}`;
+      } catch (e) {
+        alert("Błąd zmiany nazwy: " + e.message);
+        input.replaceWith(h1);
+      }
+    };
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter")  { e.preventDefault(); save(); }
+      if (e.key === "Escape") { e.preventDefault(); cancel(); }
+    });
+    input.addEventListener("blur", save);
+  });
+}
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -23,6 +117,7 @@ async function init() {
 
   document.title = `Projekt: ${name}`;
   document.getElementById("project-title").textContent = name;
+  setupConfirmModal();
 
   // Pobierz mapę uid→user raz
   let allUsers = [];
@@ -34,7 +129,58 @@ async function init() {
 
   setupAddTaskModal(user.uid, { allUsers, showOwnerPicker: false });
   setupMembersModal();
+  setupProjectMembersModal();
+  setupFinishProjectModal();
   document.getElementById("btn-add-task").addEventListener("click", () => openAddTaskModal(name));
+
+  const btnAccess  = document.getElementById("btn-project-access");
+  const btnFinish  = document.getElementById("btn-finish-project");
+
+  let currentProject = null;
+  let canEditTitle   = false;
+  setupTitleEditing(name, () => currentProject, () => canEditTitle);
+
+  subscribeProject(name, (project) => {
+    const isAdmin  = role === "admin";
+    const isOwner  = project?.uid === user.uid;
+    const isMember = !!(project?.members?.[user.uid]);
+
+    if (project !== null && !isAdmin && !isOwner && !isMember) {
+      window.location.href = "index.html";
+      return;
+    }
+
+    const projectUids = new Set([
+      ...(project?.uid ? [project.uid] : []),
+      ...Object.keys(project?.members || {}),
+    ]);
+    updateAddTaskModalUsers(allUsers.filter(u => projectUids.has(u.uid)));
+
+    const isManager = isAdmin || isOwner;
+
+    currentProject = project;
+    canEditTitle   = isManager && !!project?.id;
+    document.getElementById("project-title")?.classList.toggle("editable", canEditTitle);
+
+    if (isManager && project) {
+      const isDone = project.status === "done";
+      btnFinish.style.display  = "";
+      btnFinish.textContent    = isDone ? "Wznów projekt" : "Zakończ projekt";
+      btnFinish.classList.toggle("btn-finish--resume", isDone);
+      btnFinish.onclick        = () => openFinishProjectModal(project);
+    } else {
+      btnFinish.style.display = "none";
+    }
+
+    if (isManager) {
+      btnAccess.style.display = "";
+      btnAccess.onclick = () => openProjectMembersModal({ project: project || { id: null, uid: user.uid, members: {}, name }, currentUser: user, currentUserRole: role });
+    } else {
+      btnAccess.style.display = "none";
+    }
+
+    updateProjectMembersModal({ project: project || { id: null, uid: user.uid, members: {}, name }, currentUser: user, currentUserRole: role });
+  });
 
   let myEntries = [];
   let tasks     = [];
@@ -119,8 +265,6 @@ async function init() {
       <div class="task-card-header">
         <span class="task-name">${task.title}</span>
         <div class="task-card-actions">
-          ${statusBadge(task.status)}
-          <span class="task-hours">${hoursStr}</span>
           <button class="btn-manage-members" title="Zarządzaj dostępem" type="button">${PEOPLE_SVG}</button>
           <button class="btn-delete-task" title="Usuń zadanie" type="button">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -128,6 +272,8 @@ async function init() {
               <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
             </svg>
           </button>
+          ${statusBadge(task.status)}
+          <span class="task-hours">${hoursStr}</span>
         </div>
       </div>
       ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
@@ -150,7 +296,7 @@ async function init() {
     if (task.status === "reviewing") {
       a.addEventListener("click", async (e) => {
         e.preventDefault();
-        if (!confirm(`Wejście do zadania cofnie status „Do sprawdzenia" z powrotem na „Nie Zrobione". Kontynuować?`)) return;
+        if (!await showConfirm(`Wejście do zadania cofnie status „Do sprawdzenia” z powrotem na „Nie Zrobione”. Kontynuować?`)) return;
         await updateTaskStatus(task.id, "todo");
         window.location.href = taskUrl;
       });
@@ -194,7 +340,7 @@ async function init() {
     if (task.status === "reviewing") {
       a.addEventListener("click", async (e) => {
         e.preventDefault();
-        if (!confirm(`Wejście do zadania cofnie status „Do sprawdzenia" z powrotem na „Nie Zrobione". Kontynuować?`)) return;
+        if (!await showConfirm(`Wejście do zadania cofnie status „Do sprawdzenia” z powrotem na „Nie Zrobione”. Kontynuować?`)) return;
         await updateTaskStatus(task.id, "todo");
         window.location.href = taskUrl;
       });

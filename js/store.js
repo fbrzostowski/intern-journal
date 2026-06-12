@@ -181,6 +181,12 @@ export async function deleteTask(taskId) {
   clearCache();
 }
 
+export function subscribeAllTasks(callback) {
+  return onSnapshot(collection(db, "tasks"), (snap) => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+}
+
 export function subscribeProjectTasks(projectName, callback) {
   const q = query(
     collection(db, "tasks"),
@@ -252,6 +258,90 @@ export function subscribeAllProjectNames(callback) {
     )].sort();
     callback(names);
   });
+}
+
+// ── Projects ───────────────────────────────────────────────────────
+
+export async function addProject(uid, name) {
+  return await addDoc(collection(db, "projects"), {
+    uid,
+    name,
+    members:   {},
+    createdAt: serverTimestamp(),
+  });
+}
+
+export function subscribeProject(name, callback) {
+  const q = query(collection(db, "projects"), where("name", "==", name));
+  return onSnapshot(q, (snap) => {
+    if (snap.empty) { callback(null); return; }
+    const d = snap.docs[0];
+    callback({ id: d.id, ...d.data() });
+  });
+}
+
+export function subscribeAllProjectDocs(callback) {
+  return onSnapshot(
+    query(collection(db, "projects"), orderBy("createdAt", "asc")),
+    (snap) => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+  );
+}
+
+export async function updateProjectMembers(projectId, uid, role) {
+  if (role === null) {
+    await updateDoc(doc(db, "projects", projectId), { [`members.${uid}`]: deleteField() });
+  } else {
+    await updateDoc(doc(db, "projects", projectId), { [`members.${uid}`]: role });
+  }
+}
+
+export async function transferProjectOwnership(projectId, newOwnerUid, oldOwnerUid = null) {
+  const update = {
+    uid: newOwnerUid,
+    [`members.${newOwnerUid}`]: deleteField(),
+  };
+  if (oldOwnerUid && oldOwnerUid !== newOwnerUid) {
+    update[`members.${oldOwnerUid}`] = "write";
+  }
+  await updateDoc(doc(db, "projects", projectId), update);
+}
+
+export async function setProjectDone(projectId) {
+  await updateDoc(doc(db, "projects", projectId), { status: "done" });
+}
+
+export async function resumeProject(projectId) {
+  await updateDoc(doc(db, "projects", projectId), { status: deleteField() });
+}
+
+export async function deleteProject(projectId, projectName) {
+  const tasksSnap = await getDocs(
+    query(collection(db, "tasks"), where("projectName", "==", projectName))
+  );
+  const batch = writeBatch(db);
+  for (const taskDoc of tasksSnap.docs) {
+    const entriesSnap = await getDocs(
+      query(collection(db, "entries"), where("taskId", "==", taskDoc.id))
+    );
+    entriesSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(taskDoc.ref);
+  }
+  batch.delete(doc(db, "projects", projectId));
+  await batch.commit();
+  clearCache();
+}
+
+export async function renameProject(projectId, oldName, newName) {
+  const [tasksSnap, entriesSnap] = await Promise.all([
+    getDocs(query(collection(db, "tasks"),   where("projectName", "==", oldName))),
+    getDocs(query(collection(db, "entries"), where("projectName", "==", oldName))),
+  ]);
+  const batch = writeBatch(db);
+  batch.update(doc(db, "projects", projectId), { name: newName });
+  tasksSnap.docs.forEach(d   => batch.update(d.ref, { projectName: newName }));
+  entriesSnap.docs.forEach(d => batch.update(d.ref, { projectName: newName }));
+  await batch.commit();
+  clearCache();
 }
 
 // ── Users / Admin ──────────────────────────────────────────────────

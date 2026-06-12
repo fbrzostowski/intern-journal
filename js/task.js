@@ -3,6 +3,52 @@ import { subscribeTaskEntries, subscribeTask, updateTaskStatus, getAllUsers, cha
 import { setupEditModal, openEditModal } from "./edit-modal.js";
 import { setupAddModal, openAddModal } from "./add-entry-modal.js";
 import { setupMembersModal, openMembersModal, updateMembersModal } from "./task-members-modal.js";
+import { buildInternPicker } from "./intern-picker.js";
+
+let confirmModal = null;
+
+function setupConfirmModal() {
+  confirmModal = document.createElement("div");
+  confirmModal.className = "modal-overlay";
+  confirmModal.style.display = "none";
+  confirmModal.innerHTML = `
+    <div class="modal-box" style="max-width:420px">
+      <h2 style="margin-bottom:12px">Edytuj wpis</h2>
+      <p id="confirm-modal-msg" style="margin-bottom:24px;color:var(--text-secondary,#555);line-height:1.5"></p>
+      <div class="form-actions">
+        <button type="button" id="btn-confirm-cancel" class="btn-secondary">Anuluj</button>
+        <button type="button" id="btn-confirm-ok" class="btn-add">Kontynuuj</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(confirmModal);
+}
+
+function showConfirm(message) {
+  return new Promise((resolve) => {
+    document.getElementById("confirm-modal-msg").textContent = message;
+
+    const btnOk     = document.getElementById("btn-confirm-ok");
+    const btnCancel = document.getElementById("btn-confirm-cancel");
+
+    function finish(result) {
+      confirmModal.style.display = "none";
+      btnOk.removeEventListener("click", onOk);
+      btnCancel.removeEventListener("click", onCancel);
+      confirmModal.removeEventListener("click", onOverlay);
+      resolve(result);
+    }
+
+    function onOk()      { finish(true);  }
+    function onCancel()  { finish(false); }
+    function onOverlay(e) { if (e.target === confirmModal) finish(false); }
+
+    btnOk.addEventListener("click", onOk);
+    btnCancel.addEventListener("click", onCancel);
+    confirmModal.addEventListener("click", onOverlay);
+    confirmModal.style.display = "flex";
+  });
+}
 
 const STATUS_MAP = {
   todo:      { label: "Nie zrobione",   cls: "status-todo" },
@@ -31,6 +77,7 @@ async function init() {
   setupEditModal();
   setupAddModal(user.uid);
   setupMembersModal();
+  setupConfirmModal();
 
   const usersMap = new Map();
   try {
@@ -38,8 +85,105 @@ async function init() {
     users.forEach(u => usersMap.set(u.uid, u));
   } catch (_) {}
 
-  let currentAccess  = null;
-  let pendingEntries = null;
+  let currentAccess      = null;
+  let currentTaskStatus  = "todo";
+  let currentEntries     = [];
+  let activePeriod       = "all";
+  let selectedAuthorUid  = null;
+  let authorsKey         = "";
+  let hasMultipleInterns = false;
+  let activeView         = "summary";
+
+  // Picker stażystów jest widoczny tylko w zakładce „Wszystko" i gdy
+  // wpisy ma co najmniej dwóch stażystów.
+  function updatePickerVisibility() {
+    const wrap = document.getElementById("intern-picker-wrap");
+    wrap.style.display = (activeView === "all" && hasMultipleInterns) ? "" : "none";
+  }
+
+  function periodStart() {
+    const now = new Date();
+    if (activePeriod === "week") {
+      const d = new Date(now);
+      d.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    if (activePeriod === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+    return null;
+  }
+
+  function rerenderEntries() {
+    if (currentAccess === null) return;
+    const start = periodStart();
+    let filtered = start ? currentEntries.filter(e => e.timestamp >= start) : currentEntries;
+    if (selectedAuthorUid) filtered = filtered.filter(e => e.uid === selectedAuthorUid);
+    renderEntries(filtered, user, currentAccess, currentTaskStatus, taskId, usersMap);
+  }
+
+  // Buduje/odświeża filtr stażystów na podstawie autorów wpisów.
+  function buildAuthorFilter() {
+    const authorUids = [...new Set(currentEntries.map(e => e.uid))];
+    const authors    = authorUids.map(uid => usersMap.get(uid)).filter(Boolean);
+    const interns    = authors.filter(u => u.role === "intern");
+    const wrap       = document.getElementById("intern-picker-wrap");
+
+    // Filtr ma sens tylko gdy wpisy ma co najmniej dwóch stażystów.
+    hasMultipleInterns = interns.length >= 2;
+
+    if (!hasMultipleInterns) {
+      wrap.innerHTML = "";
+      authorsKey = "";
+      if (selectedAuthorUid) { selectedAuthorUid = null; rerenderEntries(); }
+      updatePickerVisibility();
+      return;
+    }
+
+    const key = interns.map(u => u.uid).sort().join(",");
+    if (key !== authorsKey) { // przebuduj tylko gdy zmienił się skład stażystów
+      authorsKey = key;
+
+      // Jeśli wybrany stażysta zniknął z listy, zresetuj filtr.
+      if (selectedAuthorUid && !interns.some(u => u.uid === selectedAuthorUid)) {
+        selectedAuthorUid = null;
+      }
+
+      wrap.innerHTML = "";
+      buildInternPicker(wrap, interns, selectedAuthorUid, (uid) => {
+        selectedAuthorUid = uid;
+        rerenderEntries();
+      });
+    }
+    updatePickerVisibility();
+  }
+
+  function updatePeriodBtns() {
+    document.querySelectorAll(".period-btn").forEach(btn =>
+      btn.classList.toggle("period-btn--active", btn.dataset.period === activePeriod));
+  }
+
+  document.querySelectorAll(".period-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activePeriod = btn.dataset.period;
+      updatePeriodBtns();
+      rerenderEntries();
+    });
+  });
+  updatePeriodBtns();
+
+  // Przełączanie zakładek: Podsumowanie / Wszystko
+  function setActiveView(view) {
+    activeView = view;
+    document.querySelectorAll(".view-tab").forEach(btn =>
+      btn.classList.toggle("view-tab--active", btn.dataset.view === view));
+    document.getElementById("summary-section").style.display = view === "summary" ? "" : "none";
+    document.getElementById("all-section").style.display     = view === "all"     ? "" : "none";
+    updatePickerVisibility();
+  }
+  document.querySelectorAll(".view-tab").forEach(btn => {
+    btn.addEventListener("click", () => setActiveView(btn.dataset.view));
+  });
+  setActiveView(activeView);
 
   function getAccess(task) {
     if (role === "admin")          return "admin";
@@ -56,7 +200,8 @@ async function init() {
   subscribeTask(taskId, (task) => {
     if (!task) { window.location.href = "index.html"; return; }
 
-    currentAccess = getAccess(task);
+    currentAccess     = getAccess(task);
+    currentTaskStatus = task.status ?? "todo";
 
     if (!currentAccess) {
       window.location.href = task.projectName
@@ -65,10 +210,14 @@ async function init() {
       return;
     }
 
-    document.getElementById("task-title").textContent = task.title;
     const projectPage = role === "admin" ? "admin-project.html" : "project.html";
-    document.getElementById("btn-back").href = `${projectPage}?name=${encodeURIComponent(task.projectName)}`;
-    document.title = `Zadanie: ${task.title}`;
+    const projectUrl  = `${projectPage}?name=${encodeURIComponent(task.projectName)}`;
+    document.getElementById("task-title").innerHTML =
+      `<a href="${projectUrl}" class="task-breadcrumb-project">${task.projectName}</a>` +
+      `<span class="task-breadcrumb-sep">/</span>` +
+      `<span class="task-breadcrumb-name">${task.title}</span>`;
+    document.getElementById("btn-back").href = projectUrl;
+    document.title = `Zadanie: ${task.projectName}/${task.title}`;
 
     // "Dodaj wpis"
     const btnAdd = document.getElementById("btn-add-entry");
@@ -121,23 +270,37 @@ async function init() {
       btnDone?.remove();
     }
 
-    // Odblokuj oczekujące wpisy
-    if (pendingEntries !== null) {
-      renderEntries(pendingEntries, user, currentAccess, usersMap);
-      pendingEntries = null;
+    // "Zaakceptuj" — admin zatwierdza zadanie „Do sprawdzenia" jako „Wykonane"
+    let btnAccept = document.getElementById("btn-accept");
+    if (task.status === "reviewing" && currentAccess === "admin") {
+      if (!btnAccept) {
+        btnAccept = document.createElement("button");
+        btnAccept.id        = "btn-accept";
+        btnAccept.className  = "btn-accept";
+        btnAccept.textContent = "Zaakceptuj jako wykonane";
+        document.getElementById("btn-add-entry").insertAdjacentElement("beforebegin", btnAccept);
+        btnAccept.addEventListener("click", async () => {
+          btnAccept.disabled = true;
+          await updateTaskStatus(taskId, "done");
+        });
+      }
+    } else {
+      btnAccept?.remove();
     }
+
+    // Renderuj wpisy (dostęp już znany)
+    rerenderEntries();
   });
 
   subscribeTaskEntries(taskId, (entries) => {
-    if (currentAccess === null) {
-      pendingEntries = entries;
-    } else {
-      renderEntries(entries, user, currentAccess, usersMap);
-    }
+    currentEntries = entries;
+    buildAuthorFilter();
+    renderSummary(entries, usersMap);
+    rerenderEntries();
   });
 }
 
-function renderEntries(entries, user, access, usersMap = new Map()) {
+function renderEntries(entries, user, access, taskStatus = "todo", taskId = null, usersMap = new Map()) {
   const canEdit = access === "owner" || access === "write";
 
   if (!entries.length) {
@@ -205,9 +368,26 @@ function renderEntries(entries, user, access, usersMap = new Map()) {
       </div>
     `;
     if (showEdit) {
-      wrap.querySelector(".btn-edit-entry").addEventListener("click", () => openEditModal(entry));
+      wrap.querySelector(".btn-edit-entry").addEventListener("click", async () => {
+        if (taskStatus === "done") {
+          const ok = await showConfirm(
+            `To zadanie jest oznaczone jako „Wykonane”. Edytowanie wpisu spowoduje powr\xF3t statusu zadania do „Nie zrobione”. Czy chcesz kontynuować?`
+          );
+          if (!ok) return;
+          await updateTaskStatus(taskId, "todo");
+        }
+        openEditModal(entry);
+      });
       wrap.querySelector(".btn-delete-entry").addEventListener("click", async () => {
-        if (!confirm(`Usunąć wpis „${entry.title}"?`)) return;
+        if (taskStatus === "done") {
+          const ok = await showConfirm(
+            `To zadanie jest oznaczone jako „Wykonane". Usunięcie wpisu spowoduje powrót statusu zadania do „Nie zrobione". Czy chcesz kontynuować?`
+          );
+          if (!ok) return;
+          await updateTaskStatus(taskId, "todo");
+        } else {
+          if (!await showConfirm(`Usunąć wpis „${entry.title}"?`)) return;
+        }
         try { await deleteEntry(entry.id); }
         catch (err) { alert("Błąd usuwania: " + err.message); }
       });
@@ -236,6 +416,104 @@ function renderEntries(entries, user, access, usersMap = new Map()) {
         plugins: { legend: { display: false } },
       },
     });
+  });
+}
+
+// Średnia ważona oceny danej kategorii wg liczby godzin wpisu.
+function weightedAvg(entries, key) {
+  let num = 0, den = 0;
+  entries.forEach(e => {
+    const v = e.ratings?.[key] ?? 0;
+    const h = e.hours ?? 0;
+    num += v * h;
+    den += h;
+  });
+  if (den > 0) return num / den;
+  // Brak godzin — fallback do zwykłej średniej.
+  const vals = entries.map(e => e.ratings?.[key] ?? 0);
+  return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+}
+
+let summaryCharts = [];
+
+// Wykresy podsumowujące (średnia ważona) dla każdego autora wpisów.
+// Niezależne od filtra okresu i wyboru stażysty — pokazują całość zadania.
+function renderSummary(entries, usersMap = new Map()) {
+  const grid = document.getElementById("summary-grid");
+
+  summaryCharts.forEach(c => c.destroy());
+  summaryCharts = [];
+  grid.innerHTML = "";
+
+  if (!entries.length) {
+    grid.innerHTML = `<p class="summary-empty">Brak wpisów.</p>`;
+    return;
+  }
+
+  const byAuthor = new Map();
+  entries.forEach(e => {
+    if (!byAuthor.has(e.uid)) byAuthor.set(e.uid, []);
+    byAuthor.get(e.uid).push(e);
+  });
+
+  const authors = [...byAuthor.entries()]
+    .map(([uid, es]) => ({ uid, entries: es, totalHours: es.reduce((s, e) => s + e.hours, 0) }))
+    .sort((a, b) => b.totalHours - a.totalHours);
+
+  authors.forEach((a, i) => {
+    const authorData = usersMap.get(a.uid);
+    const authorName = authorData
+      ? (authorData.displayName || authorData.name || authorData.email || "Stażysta")
+      : "Stażysta";
+    const authorAvatar = authorData?.photoURL
+      ? `<img src="${authorData.photoURL}" class="entry-author-avatar" referrerpolicy="no-referrer" alt="">`
+      : `<div class="entry-author-initials">${authorName[0].toUpperCase()}</div>`;
+
+    const wrap = document.createElement("div");
+    wrap.className = "chart-wrap entry-card summary-card";
+    wrap.innerHTML = `
+      <div class="entry-info">
+        <div class="entry-header">
+          <span class="entry-title">${authorName}</span>
+          <span class="entry-hours">${Math.round(a.totalHours * 10) / 10}h</span>
+        </div>
+        <div class="entry-author-block">
+          <div class="entry-author">
+            ${authorAvatar}
+            <span class="entry-author-name">${a.entries.length} ${plural(a.entries.length)} · średnia ważona</span>
+          </div>
+        </div>
+      </div>
+      <div class="summary-canvas-wrap">
+        <canvas id="chart-summary-${i}"></canvas>
+      </div>
+    `;
+    grid.appendChild(wrap);
+
+    const data = CATEGORIES.map(c => Math.round(weightedAvg(a.entries, c.key) * 10) / 10);
+    const chart = new Chart(document.getElementById(`chart-summary-${i}`).getContext("2d"), {
+      type: "bar",
+      data: {
+        labels:   CATEGORIES.map(c => c.label),
+        datasets: [{
+          data,
+          backgroundColor: CATEGORIES.map(c => c.color + "bb"),
+          borderColor:     CATEGORIES.map(c => c.color),
+          borderWidth: 1.5,
+          borderRadius: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: chartGridColor() } },
+          x: { ticks: { color: "#333", font: { size: 12, weight: "500" } }, grid: { display: false } },
+        },
+        plugins: { legend: { display: false } },
+      },
+    });
+    summaryCharts.push(chart);
   });
 }
 

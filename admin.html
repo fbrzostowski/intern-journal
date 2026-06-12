@@ -47,6 +47,11 @@
   </div>
 
   <div class="chart-single-wrap">
+    <div class="chart-filter-bar">
+      <button class="chart-filter-btn chart-filter-btn--active" data-filter="all">Wszystko</button>
+      <button class="chart-filter-btn" data-filter="month">Ostatni miesiąc</button>
+      <button class="chart-filter-btn" data-filter="week">Ostatni tydzień</button>
+    </div>
     <div id="chart-legend" class="chart-legend"></div>
     <div class="chart-scroll" id="chart-scroll">
       <canvas id="chart-main"></canvas>
@@ -54,8 +59,15 @@
     </div>
   </div>
 
+  <div id="interns-bar" class="interns-bar" style="display:none"></div>
+
   <div id="projects-section" style="display:none">
-    <h2 class="section-title">Projekty</h2>
+    <div class="section-header">
+      <h2 class="section-title">Projekty</h2>
+    </div>
+    <div class="projects-filter-wrap">
+      <input type="text" id="projects-filter" class="projects-filter-input" placeholder="Szukaj projektu…" autocomplete="off">
+    </div>
     <div id="projects-list" class="projects-list"></div>
   </div>
 

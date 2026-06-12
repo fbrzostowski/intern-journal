@@ -1,8 +1,10 @@
 import { requireAuth, logout } from "./auth.js";
 import {
-  subscribeUserEntries, subscribeAllProjectNames,
-  buildDailySummaries, buildProjectList, chartGridColor,
+  subscribeUserEntries, subscribeAllProjectNames, subscribeAllProjectDocs,
+  subscribeAllTasks, buildDailySummaries, buildProjectList, chartGridColor, getAllUsers,
 } from "./store.js";
+import { setupAddProjectModal, openAddProjectModal } from "./add-project-modal.js";
+import { setupProjectMembersModal, openProjectMembersModal } from "./project-members-modal.js";
 
 const CHART_DEFS = [
   { key: "avgInterest",   label: "Ciekawość",    color: "#534AB7" },
@@ -11,27 +13,60 @@ const CHART_DEFS = [
   { key: "avgMood",       label: "Samopoczucie", color: "#B8860B" },
 ];
 
-let chart          = null;
-let currentEntries = [];
-let allProjectNames = [];
+let chart            = null;
+let chartRafHandle   = null;
+let currentEntries   = [];
+let currentSummaries = [];
+let chartFilter      = 'all';
+let allProjectNames  = [];
+let projectDocs      = [];
+let allTasks         = [];
+let allUsers         = [];
+let currentUser      = null;
+let currentRole      = null;
 
 async function init() {
-  const { user } = await requireAuth("intern");
+  const { user, role } = await requireAuth("intern");
+  currentUser = user;
+  currentRole = role;
 
   document.getElementById("user-name").textContent = user.displayName ?? user.email;
   const avatar = document.getElementById("user-avatar");
   if (user.photoURL) { avatar.src = user.photoURL; avatar.style.display = ""; }
 
   document.getElementById("btn-logout").addEventListener("click", logout);
-  document.getElementById("project-goto-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const name = document.getElementById("project-goto-input").value.trim();
-    if (name) window.location.href = `project.html?name=${encodeURIComponent(name)}`;
-  });
   document.getElementById("btn-export").addEventListener("click", () => exportCSV(currentEntries));
+  document.getElementById("projects-filter").addEventListener("input", () => renderProjectsSection());
+
+  document.querySelectorAll('.chart-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      chartFilter = btn.dataset.filter;
+      document.querySelectorAll('.chart-filter-btn').forEach(b => b.classList.remove('chart-filter-btn--active'));
+      btn.classList.add('chart-filter-btn--active');
+      if (currentSummaries.length) renderChart(currentSummaries);
+    });
+  });
+
+  window.addEventListener('resize', () => {
+    if (currentSummaries.length) renderChart(currentSummaries);
+  });
+
+  allUsers = await getAllUsers();
+  setupAddProjectModal(user.uid, { allUsers });
+  setupProjectMembersModal();
 
   subscribeAllProjectNames((names) => {
     allProjectNames = names;
+    renderProjectsSection();
+  });
+
+  subscribeAllProjectDocs((docs) => {
+    projectDocs = docs;
+    renderProjectsSection();
+  });
+
+  subscribeAllTasks((tasks) => {
+    allTasks = tasks;
     renderProjectsSection();
   });
 
@@ -51,13 +86,53 @@ async function init() {
 }
 
 function renderProjectsSection() {
-  if (!allProjectNames.length) {
-    document.getElementById("projects-section").style.display = "none";
-    return;
-  }
-  const entryMap = {};
+  const uid = currentUser?.uid;
+  const managedNames = projectDocs
+    .filter(p => p.uid === uid || (p.members && p.members[uid]))
+    .map(p => p.name);
+  const merged = [...new Set(managedNames)].sort();
+
+  const query = (document.getElementById("projects-filter")?.value ?? "").trim().toLowerCase();
+  const filtered = query ? merged.filter(n => n.toLowerCase().includes(query)) : merged;
+
+  const entryMap  = {};
   buildProjectList(currentEntries).forEach(p => { entryMap[p.name] = p; });
-  renderProjects(allProjectNames.map(name => entryMap[name] ?? { name, hours: 0, count: 0 }));
+  const docMap = {};
+  projectDocs.forEach(p => { docMap[p.name] = p; });
+  const taskCountMap = {};
+  allTasks.forEach(t => {
+    const n = t.projectName;
+    if (!n) return;
+    if (!taskCountMap[n]) taskCountMap[n] = { done: 0, total: 0 };
+    taskCountMap[n].total++;
+    if (t.status === "done") taskCountMap[n].done++;
+  });
+
+  const usersById = new Map(allUsers.map(u => [u.uid, u]));
+
+  const enrich = name => {
+    const doc = docMap[name];
+    const memberUids = doc
+      ? [...new Set([doc.uid, ...Object.keys(doc.members || {})])]
+      : [];
+    const members = memberUids.map(uid => usersById.get(uid)).filter(Boolean);
+    return {
+      ...(entryMap[name] ?? { name, hours: 0, count: 0 }),
+      status:     doc?.status,
+      createdAt:  doc?.createdAt,
+      doc,
+      tasksDone:  taskCountMap[name]?.done  ?? 0,
+      tasksTotal: taskCountMap[name]?.total ?? 0,
+      members,
+    };
+  };
+
+  const active = filtered.filter(n => docMap[n]?.status !== "done").map(enrich);
+  const done   = filtered.filter(n => docMap[n]?.status === "done")
+    .map(enrich)
+    .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+
+  renderProjects(active, done);
 }
 
 function renderStats(entries) {
@@ -81,12 +156,24 @@ function renderStats(entries) {
   document.getElementById("stats-bar").style.display = "";
 }
 
-function renderChart(summaries) {
-  if (chart) { chart.destroy(); chart = null; }
+function applyChartFilter(summaries, filter) {
+  if (filter === 'all') return summaries;
+  const cutoff = new Date();
+  if (filter === 'week')  cutoff.setDate(cutoff.getDate() - 7);
+  if (filter === 'month') cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  return summaries.filter(s => s.date >= cutoffStr);
+}
 
-  const dates      = summaries.map(s => s.date);
-  const dateLabels = summaries.map(s => s.dateLabel);
-  const hoursArr   = summaries.map(s => s.totalHours);
+function absOffsetTop(el) {
+  let top = 0;
+  for (let e = el; e; e = e.offsetParent) top += e.offsetTop;
+  return top;
+}
+
+function renderChart(summaries) {
+  currentSummaries = summaries;
+  if (chartRafHandle) cancelAnimationFrame(chartRafHandle);
 
   document.getElementById("chart-legend").innerHTML = CHART_DEFS.map(def =>
     `<span class="legend-item">
@@ -94,85 +181,178 @@ function renderChart(summaries) {
      </span>`
   ).join("");
 
-  const PX_PER_DAY = 170;
-  const chartW     = Math.max(summaries.length * PX_PER_DAY, 600);
-  const chartH     = 380;
-  const canvas     = document.getElementById("chart-main");
-  canvas.width  = chartW; canvas.height = chartH;
-  canvas.style.width = chartW + "px"; canvas.style.height = chartH + "px";
+  chartRafHandle = requestAnimationFrame(() => {
+    chartRafHandle = null;
+    if (chart) { chart.destroy(); chart = null; }
 
-  chart = new Chart(canvas.getContext("2d"), {
-    type: "line",
-    data: {
-      labels: dateLabels,
-      datasets: CHART_DEFS.map(def => ({
-        label:                def.label,
-        data:                 summaries.map(s => s[def.key]),
-        borderColor:          def.color,
-        backgroundColor:      def.color + "18",
-        tension:              0.35,
-        pointRadius:          6,
-        pointHoverRadius:     9,
-        pointBackgroundColor: def.color,
-      })),
-    },
-    options: {
-      responsive: false,
-      maintainAspectRatio: false,
-      scales: {
-        y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: chartGridColor() } },
-        x: {
-          ticks: { callback: (_, i) => `${hoursArr[i]}h`, color: "#888", font: { size: 11 } },
-          grid: { display: false },
+    const data       = applyChartFilter(summaries, chartFilter);
+    const dates      = data.map(s => s.date);
+    const dateLabels = data.map(s => s.dateLabel);
+    const hoursArr   = data.map(s => s.totalHours);
+
+    const TICKS_H        = 36;
+    const MIN_PX_PER_DAY = 70;
+    const scrollEl   = document.getElementById("chart-scroll");
+    const containerW = scrollEl.offsetWidth || 800;
+    const chartW     = Math.max(data.length * MIN_PX_PER_DAY, containerW, 400);
+
+    // Dynamiczny podział wysokości: wykres 60%, projekty 40%
+    const wrap       = document.querySelector('.chart-single-wrap');
+    const filterBar  = document.querySelector('.chart-filter-bar');
+    const legend     = document.getElementById('chart-legend');
+    const wrapTop    = absOffsetTop(wrap) - window.scrollY;
+    const availH     = window.innerHeight - Math.max(wrapTop, 0);
+    const overheadH  = (filterBar?.offsetHeight || 0) + (legend?.offsetHeight || 0) + TICKS_H;
+    const chartSectH = Math.max(Math.round(availH * 0.50), overheadH + 220);
+    const chartH     = chartSectH - overheadH;
+
+    // wrap.offsetHeight = wrapVert + chartSectH — musimy to odjąć od projectsH
+    const wrapCS   = getComputedStyle(wrap);
+    const wrapVert = parseFloat(wrapCS.paddingTop) + parseFloat(wrapCS.paddingBottom)
+                   + parseFloat(wrapCS.borderTopWidth) + parseFloat(wrapCS.borderBottomWidth);
+    const projectsH = availH - wrapVert - chartSectH;
+
+    scrollEl.style.height = (chartH + TICKS_H) + "px";
+
+    const projSection = document.getElementById('projects-section');
+    if (projSection) {
+      projSection.style.height    = projectsH > 80 ? projectsH + 'px' : '';
+      projSection.style.overflowY = projectsH > 80 ? 'auto' : '';
+    }
+
+    const canvas  = document.getElementById("chart-main");
+    canvas.width  = chartW; canvas.height = chartH;
+    canvas.style.width = chartW + "px"; canvas.style.height = chartH + "px";
+
+    chart = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: {
+        labels: dateLabels,
+        datasets: CHART_DEFS.map(def => ({
+          label:                def.label,
+          data:                 data.map(s => s[def.key]),
+          borderColor:          def.color,
+          backgroundColor:      def.color + "18",
+          tension:              0.35,
+          pointRadius:          6,
+          pointHoverRadius:     9,
+          pointBackgroundColor: def.color,
+        })),
+      },
+      options: {
+        responsive: false,
+        maintainAspectRatio: false,
+        scales: {
+          y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: chartGridColor() } },
+          x: {
+            ticks: { callback: (_, i) => `${hoursArr[i]}h`, color: "#888", font: { size: 11 } },
+            grid: { display: false },
+          },
         },
+        onClick(event, _el, c) {
+          const xScale = c.scales.x;
+          let closest = -1, minDist = 40;
+          dateLabels.forEach((_, i) => {
+            const dist = Math.abs(event.x - xScale.getPixelForTick(i));
+            if (dist < minDist) { minDist = dist; closest = i; }
+          });
+          if (closest >= 0) window.location.href = `day.html?date=${dates[closest]}`;
+        },
+        plugins: { legend: { display: false } },
       },
-      onClick(event, _el, c) {
-        const xScale = c.scales.x;
-        let closest = -1, minDist = 40;
-        dateLabels.forEach((_, i) => {
-          const dist = Math.abs(event.x - xScale.getPixelForTick(i));
-          if (dist < minDist) { minDist = dist; closest = i; }
-        });
-        if (closest >= 0) window.location.href = `day.html?date=${dates[closest]}`;
-      },
-      plugins: { legend: { display: false } },
-    },
-  });
+    });
 
-  const ticks = document.getElementById("chart-ticks");
-  ticks.innerHTML = "";
-  ticks.style.width = chartW + "px";
-  dates.forEach((date, i) => {
-    const a = document.createElement("a");
-    a.href      = `day.html?date=${date}`;
-    a.className = "tick-btn";
-    a.textContent = dateLabels[i];
-    a.style.left  = chart.scales.x.getPixelForTick(i) + "px";
-    ticks.appendChild(a);
-  });
+    const ticks = document.getElementById("chart-ticks");
+    ticks.innerHTML = "";
+    ticks.style.width = chartW + "px";
+    dates.forEach((date, i) => {
+      const a = document.createElement("a");
+      a.href      = `day.html?date=${date}`;
+      a.className = "tick-btn";
+      a.textContent = dateLabels[i];
+      a.style.left  = chart.scales.x.getPixelForTick(i) + "px";
+      ticks.appendChild(a);
+    });
 
-  requestAnimationFrame(() => {
-    document.getElementById("chart-scroll").scrollLeft = document.getElementById("chart-scroll").scrollWidth;
+    scrollEl.scrollLeft = scrollEl.scrollWidth;
   });
 }
 
-function renderProjects(projects) {
+function renderProjects(active, done = []) {
   const list = document.getElementById("projects-list");
   list.innerHTML = "";
-  const plural = n => n === 1 ? "wpis" : n < 5 ? "wpisy" : "wpisów";
-  projects.forEach(p => {
+
+  const addCard = document.createElement("button");
+  addCard.type = "button";
+  addCard.className = "project-card project-card--add";
+  addCard.innerHTML = `<span class="project-card-add-icon">+</span><span class="project-card-add-label">Dodaj projekt</span>`;
+  addCard.addEventListener("click", openAddProjectModal);
+  list.appendChild(addCard);
+
+  const avatarHtml = u => u?.photoURL
+    ? `<img src="${u.photoURL}" class="card-member-avatar" referrerpolicy="no-referrer" alt="">`
+    : `<div class="card-member-avatar card-member-initials">${(u?.displayName || u?.name || u?.email || "?")[0].toUpperCase()}</div>`;
+
+  const makeCard = (p) => {
     const card = document.createElement("a");
     card.href      = `project.html?name=${encodeURIComponent(p.name)}`;
-    card.className = "project-card";
+    card.className = "project-card" + (p.status === "done" ? " project-card--done" : "");
+
+    const tasksMeta = p.tasksTotal ? `${p.tasksDone}/${p.tasksTotal} zadań` : "Brak zadań";
+    const members   = p.members ?? [];
+
+    let memberHtml = "";
+    if (members.length === 1) {
+      const u = members[0];
+      const name = u?.displayName || u?.name || u?.email || "Stażysta";
+      memberHtml = `
+        <div class="card-member-single">
+          ${avatarHtml(u)}
+          <span class="card-member-name">${name}</span>
+        </div>`;
+    } else if (members.length > 1) {
+      const MAX = 3;
+      const shown = members.slice(0, MAX);
+      const extra = members.length - MAX;
+      memberHtml = `
+        <div class="card-members-multi">
+          <div class="card-member-avatars">
+            ${shown.map(avatarHtml).join("")}
+            ${extra > 0 ? `<div class="card-member-avatar card-member-extra">+${extra}</div>` : ""}
+          </div>
+          <span class="link-members-count">${members.length} stażystów</span>
+        </div>`;
+    }
+
     card.innerHTML = `
       <div class="project-card-header">
         <span class="project-name">${p.name}</span>
-        ${p.hours ? `<span class="project-hours">${p.hours}h</span>` : ""}
+        ${p.status === "done" ? `<span class="project-done-badge">DONE</span>` : p.hours ? `<span class="project-hours">${p.hours}h</span>` : ""}
       </div>
-      <div class="project-meta">${p.count ? `${p.count} ${plural(p.count)}` : "Brak wpisów"}</div>
+      <div class="project-meta">${tasksMeta}</div>
+      ${memberHtml}
     `;
-    list.appendChild(card);
-  });
+
+    if (members.length > 1 && p.doc) {
+      card.querySelector(".link-members-count")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        openProjectMembersModal({ project: p.doc, currentUser, currentUserRole: currentRole });
+      });
+    }
+
+    return card;
+  };
+
+  active.forEach(p => list.appendChild(makeCard(p)));
+
+  if (done.length) {
+    const sep = document.createElement("div");
+    sep.className = "projects-done-separator";
+    sep.textContent = "Zakończone";
+    list.appendChild(sep);
+    done.forEach(p => list.appendChild(makeCard(p)));
+  }
+
   document.getElementById("projects-section").style.display = "";
 }
 

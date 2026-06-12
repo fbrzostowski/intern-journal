@@ -21,6 +21,15 @@
       </div>
     </div>
     <div class="header-actions">
+      <button id="btn-manage-project-access" class="btn-secondary btn-manage-members">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Dostęp
+      </button>
+      <button id="btn-finish-project" class="btn-finish">Zakończ projekt</button>
       <button id="btn-add-task" class="btn-add">+ Zleć zadanie</button>
       <div id="intern-picker-wrap"></div>
       <div class="header-user">
@@ -30,12 +39,6 @@
       </div>
     </div>
   </header>
-
-  <div class="period-bar">
-    <button class="period-btn" data-period="all">Wszystkie</button>
-    <button class="period-btn" data-period="month">W tym miesiącu</button>
-    <button class="period-btn" data-period="week">W tym tygodniu</button>
-  </div>
 
   <div id="tasks-container" class="admin-tasks-container"></div>
 
