@@ -1,21 +1,24 @@
 import { addTask, updateTaskMembers } from "./store.js";
 
-let modal          = null;
-let ownerUid       = null; // admin uid
-let projectCtx     = null;
-let contextUsers   = null;
-let pendingOwner   = null; // { uid } — kto będzie task.uid
-let pendingMembers = []; // [{ uid, role }] — tylko nie-właściciele
+let modal            = null;
+let ownerUid         = null;
+let projectCtx       = null;
+let contextUsers     = null;
+let showOwnerSection = true;
+let pendingOwner     = null;
+let pendingMembers   = [];
 
 const CROWN_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
   <path d="M2 19h20v2H2v-2zM2 6l5 8 5-6 5 6 5-8v11H2V6z"/>
 </svg>`;
 
-export function setupAddTaskModal(userUid, { allUsers } = {}) {
-  ownerUid     = userUid;
-  contextUsers = allUsers || null;
+export function setupAddTaskModal(userUid, { allUsers, showOwnerPicker = true } = {}) {
+  ownerUid         = userUid;
+  contextUsers     = allUsers || null;
+  showOwnerSection = showOwnerPicker !== false;
 
-  const isAdmin   = !!contextUsers;
+  const hasUsers  = !!contextUsers;
+  const isAdmin   = hasUsers && showOwnerSection;
   const title     = isAdmin ? "Zleć zadanie" : "Nowe zadanie";
   const submitLbl = isAdmin ? "Zleć zadanie" : "Utwórz zadanie";
 
@@ -23,7 +26,7 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
   modal.className     = "modal-overlay";
   modal.style.display = "none";
   modal.innerHTML = `
-    <div class="modal-box entry-form-box${isAdmin ? " task-modal-admin" : ""}">
+    <div class="modal-box entry-form-box${hasUsers ? " task-modal-admin" : ""}">
       <h2>${title}</h2>
       <form id="task-form" novalidate>
         <div class="form-group">
@@ -35,12 +38,14 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
           <textarea id="tf-desc" rows="3" placeholder="Czym jest to zadanie?"></textarea>
         </div>
 
-        ${isAdmin ? `
+        ${hasUsers ? `
           <div class="task-members-setup">
-            <div class="members-setup-owner" id="tf-owner-section">
-              <p class="members-section-label">Właściciel</p>
-              <div id="tf-owner-row"></div>
-            </div>
+            ${isAdmin ? `
+              <div class="members-setup-owner" id="tf-owner-section">
+                <p class="members-section-label">Właściciel</p>
+                <div id="tf-owner-row"></div>
+              </div>
+            ` : ""}
             <div id="tf-members-section">
               <p class="members-section-label">Dostęp do zadania</p>
               <div id="tf-members-list"></div>
@@ -72,15 +77,14 @@ export function setupAddTaskModal(userUid, { allUsers } = {}) {
   document.getElementById("btn-cancel-task").addEventListener("click", closeModal);
   modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
-  if (isAdmin) {
+  if (hasUsers) {
     document.getElementById("btn-add-member-inline").addEventListener("click", () => {
       const uid   = document.getElementById("tf-new-member").value;
       const role  = document.getElementById("tf-new-role").value;
       const errEl = document.getElementById("task-members-error");
       if (!uid) { errEl.textContent = "Wybierz stażystę."; return; }
       errEl.textContent = "";
-      // Pierwszy dodany zostaje właścicielem, kolejni trafiają do members
-      if (!pendingOwner) {
+      if (showOwnerSection && !pendingOwner) {
         pendingOwner = { uid };
       } else {
         pendingMembers.push({ uid, role });
@@ -210,9 +214,11 @@ function renderMembersList() {
         <span class="member-name">${name}</span>
       </div>
       <div class="member-actions">
-        <button type="button" class="btn-set-owner" data-uid="${uid}" title="Ustaw jako właściciela">
-          ${CROWN_SVG}
-        </button>
+        ${showOwnerSection ? `
+          <button type="button" class="btn-set-owner" data-uid="${uid}" title="Ustaw jako właściciela">
+            ${CROWN_SVG}
+          </button>
+        ` : ""}
         <select class="member-role-select" data-idx="${idx}">
           <option value="write" ${role === "write" ? "selected" : ""}>Edycja</option>
           <option value="read"  ${role === "read"  ? "selected" : ""}>Odczyt</option>
@@ -221,8 +227,7 @@ function renderMembersList() {
       </div>
     `;
 
-    // Kliknięcie korony → ten staje się właścicielem, stary właściciel do members
-    row.querySelector(".btn-set-owner").addEventListener("click", () => {
+    if (showOwnerSection) row.querySelector(".btn-set-owner").addEventListener("click", () => {
       const oldOwner = pendingOwner;
       pendingOwner   = { uid };
       pendingMembers.splice(idx, 1);

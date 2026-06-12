@@ -129,6 +129,11 @@ export async function addEntry(uid, data) {
   });
 }
 
+export async function deleteEntry(entryId) {
+  clearCache();
+  await deleteDoc(doc(db, "entries", entryId));
+}
+
 export async function updateEntry(entryId, data) {
   clearCache();
   const updates = {
@@ -229,11 +234,15 @@ export async function updateTaskMembers(taskId, uid, role) {
   }
 }
 
-export async function transferTaskOwnership(taskId, newOwnerUid) {
-  await updateDoc(doc(db, "tasks", taskId), {
+export async function transferTaskOwnership(taskId, newOwnerUid, oldOwnerUid = null) {
+  const update = {
     uid: newOwnerUid,
     [`members.${newOwnerUid}`]: deleteField(),
-  });
+  };
+  if (oldOwnerUid && oldOwnerUid !== newOwnerUid) {
+    update[`members.${oldOwnerUid}`] = "write";
+  }
+  await updateDoc(doc(db, "tasks", taskId), update);
 }
 
 export function subscribeAllProjectNames(callback) {

@@ -1,5 +1,9 @@
 import { getAllUsers, updateTaskMembers, transferTaskOwnership } from "./store.js";
 
+const CROWN_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+  <path d="M2 19h20v2H2v-2zM2 6l5 8 5-6 5 6 5-8v11H2V6z"/>
+</svg>`;
+
 let modal   = null;
 let context = null;
 let allUsers = [];
@@ -32,6 +36,7 @@ export async function openMembersModal({ task, currentUser, currentUserRole }) {
 
 export function updateMembersModal({ task, currentUser, currentUserRole }) {
   if (!modal || modal.style.display === "none") return;
+  if (!context || context.task.id !== task.id) return;
   context = { task, currentUser, currentUserRole };
   render();
 }
@@ -47,6 +52,7 @@ function render() {
   if (!content) return;
 
   const isManager  = currentUserRole === "admin" || task.uid === currentUser.uid;
+  const isAdmin    = currentUserRole === "admin";
   const members    = task.members || {};
   const memberList = Object.entries(members);
 
@@ -55,7 +61,7 @@ function render() {
   const ownerName   = displayName(ownerData);
   const ownerAvatar = avatarHtml(ownerData, ownerName);
 
-  const canRemoveOwner = currentUserRole === "admin" && task.uid !== currentUser.uid;
+  const canRemoveOwner = isAdmin && task.uid !== currentUser.uid;
 
   // Members rows
   let membersSection = "";
@@ -70,6 +76,11 @@ function render() {
             <span class="member-name">${name}</span>
           </div>
           <div class="member-actions">
+            ${isAdmin ? `
+              <button type="button" class="btn-set-owner btn-crown-member" data-uid="${uid}" data-name="${name}" title="Przenieś własność">
+                ${CROWN_SVG}
+              </button>
+            ` : ""}
             ${isManager ? `
               <select class="member-role-select" data-uid="${uid}">
                 <option value="read"  ${role === "read"  ? "selected" : ""}>Odczyt</option>
@@ -150,6 +161,19 @@ function render() {
     ${addSection}
   `;
 
+  // Events: transfer ownership (crown)
+  content.querySelectorAll(".btn-crown-member").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const uid  = btn.dataset.uid;
+      const name = btn.dataset.name;
+      if (!confirm(`Przenieść własność zadania do ${name}?`)) return;
+      btn.disabled = true;
+      const oldOwnerUid = retainableOwner(context.task.uid);
+      try { await transferTaskOwnership(context.task.id, uid, oldOwnerUid); }
+      catch (err) { alert("Błąd: " + err.message); btn.disabled = false; }
+    });
+  });
+
   // Events: role change
   content.querySelectorAll(".member-role-select").forEach(sel => {
     sel.addEventListener("change", async (e) => {
@@ -167,7 +191,7 @@ function render() {
       const isOwnerOp = btn.classList.contains("btn-remove-owner");
       if (isOwnerOp) {
         if (!confirm("Usunąć właściciela? Zostaniesz nowym właścicielem zadania.")) return;
-        try { await transferTaskOwnership(context.task.id, currentUser.uid); }
+        try { await transferTaskOwnership(context.task.id, currentUser.uid, retainableOwner(task.uid)); }
         catch (err) { alert("Błąd: " + err.message); }
       } else {
         if (!confirm("Usunąć tego stażystę z zadania?")) return;
@@ -192,6 +216,11 @@ function render() {
       finally { btnAddMember.disabled = false; }
     });
   }
+}
+
+function retainableOwner(uid) {
+  const u = allUsers.find(u => u.uid === uid);
+  return u?.role === "admin" ? null : uid;
 }
 
 function displayName(userData) {

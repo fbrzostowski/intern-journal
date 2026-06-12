@@ -2,6 +2,14 @@ import { requireAuth, logout } from "./auth.js";
 import { subscribeAllEntries, subscribeProjectTasks, getAllUsers, updateTaskStatus, deleteTask } from "./store.js";
 import { buildInternPicker } from "./intern-picker.js";
 import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
+import { setupMembersModal, openMembersModal, updateMembersModal } from "./task-members-modal.js";
+
+const PEOPLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="9" cy="7" r="4"/>
+  <path d="M3 21v-2a4 4 0 0 1 4-4h4"/>
+  <circle cx="19" cy="19" r="2"/>
+  <path d="M19 15v2"/><path d="M19 21v2"/><path d="M15 19h2"/><path d="M21 19h2"/>
+</svg>`;
 
 const STATUS_MAP = {
   todo:      { label: "Nie zrobione",   cls: "status-todo" },
@@ -11,16 +19,18 @@ const STATUS_MAP = {
 
 const params      = new URLSearchParams(window.location.search);
 const projectName = params.get('name');
-let selectedUid   = params.get('uid') || null;
-let allEntries    = [];
-let allTasks      = [];
-let usersMap      = new Map();
-let activePeriod  = 'all';
+let selectedUid      = params.get('uid') || null;
+let allEntries       = [];
+let allTasks         = [];
+let usersMap         = new Map();
+let activePeriod     = 'all';
+let currentAdminUser = null;
 
 async function init() {
   if (!projectName) { window.location.href = 'admin.html'; return; }
 
   const { user } = await requireAuth('admin');
+  currentAdminUser = user;
 
   document.getElementById('user-name').textContent = user.displayName ?? user.email;
   const avatar = document.getElementById('user-avatar');
@@ -38,6 +48,7 @@ async function init() {
   );
 
   setupAddTaskModal(user.uid, { allUsers: users });
+  setupMembersModal();
   document.getElementById('btn-add-task').addEventListener('click', () =>
     openAddTaskModal(projectName)
   );
@@ -61,6 +72,7 @@ async function init() {
   subscribeProjectTasks(projectName, (tasks) => {
     allTasks = tasks;
     renderAll();
+    tasks.forEach(t => updateMembersModal({ task: t, currentUser: user, currentUserRole: 'admin' }));
   });
 }
 
@@ -146,6 +158,7 @@ function buildTaskCard(task, hours) {
         <span class="task-status-badge ${s.cls}">${s.label}</span>
         <span class="task-hours">${hoursStr}</span>
         ${task.status === 'reviewing' ? `<button class="btn-approve-task btn-add" type="button">Zatwierdź ✓</button>` : ''}
+        <button class="btn-manage-members" title="Zarządzaj dostępem" type="button">${PEOPLE_SVG}</button>
         <button class="btn-delete-task" title="Usuń zadanie" type="button">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -160,6 +173,12 @@ function buildTaskCard(task, hours) {
       <span class="task-owner-name">${ownerName}</span>
     </div>
   `;
+
+  a.querySelector('.btn-manage-members').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openMembersModal({ task, currentUser: currentAdminUser, currentUserRole: 'admin' });
+  });
 
   if (task.status === 'reviewing') {
     a.querySelector('.btn-approve-task').addEventListener('click', async (e) => {

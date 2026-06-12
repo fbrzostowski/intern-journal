@@ -1,5 +1,5 @@
 import { requireAuth } from "./auth.js";
-import { subscribeTaskEntries, subscribeTask, updateTaskStatus, getAllUsers, chartGridColor } from "./store.js";
+import { subscribeTaskEntries, subscribeTask, updateTaskStatus, getAllUsers, chartGridColor, deleteEntry } from "./store.js";
 import { setupEditModal, openEditModal } from "./edit-modal.js";
 import { setupAddModal, openAddModal } from "./add-entry-modal.js";
 import { setupMembersModal, openMembersModal, updateMembersModal } from "./task-members-modal.js";
@@ -114,6 +114,7 @@ async function init() {
         btnDone.addEventListener("click", async () => {
           btnDone.disabled = true;
           await updateTaskStatus(taskId, "reviewing");
+          window.location.href = `project.html?name=${encodeURIComponent(task.projectName)}`;
         });
       }
     } else {
@@ -181,6 +182,12 @@ function renderEntries(entries, user, access, usersMap = new Map()) {
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
+              <button class="btn-delete-entry" title="Usuń wpis">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+              </button>
             ` : ""}
           </div>
         </div>
@@ -199,6 +206,11 @@ function renderEntries(entries, user, access, usersMap = new Map()) {
     `;
     if (showEdit) {
       wrap.querySelector(".btn-edit-entry").addEventListener("click", () => openEditModal(entry));
+      wrap.querySelector(".btn-delete-entry").addEventListener("click", async () => {
+        if (!confirm(`Usunąć wpis „${entry.title}"?`)) return;
+        try { await deleteEntry(entry.id); }
+        catch (err) { alert("Błąd usuwania: " + err.message); }
+      });
     }
     grid.appendChild(wrap);
 

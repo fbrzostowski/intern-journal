@@ -1,6 +1,14 @@
 import { requireAuth } from "./auth.js";
-import { subscribeProjectTasks, subscribeUserEntries, getAllUsers, deleteTask } from "./store.js";
+import { subscribeProjectTasks, subscribeUserEntries, getAllUsers, deleteTask, updateTaskStatus } from "./store.js";
 import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
+import { setupMembersModal, openMembersModal, updateMembersModal } from "./task-members-modal.js";
+
+const PEOPLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="9" cy="7" r="4"/>
+  <path d="M3 21v-2a4 4 0 0 1 4-4h4"/>
+  <circle cx="19" cy="19" r="2"/>
+  <path d="M19 15v2"/><path d="M19 21v2"/><path d="M15 19h2"/><path d="M21 19h2"/>
+</svg>`;
 
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -16,15 +24,17 @@ async function init() {
   document.title = `Projekt: ${name}`;
   document.getElementById("project-title").textContent = name;
 
-  setupAddTaskModal(user.uid);
-  document.getElementById("btn-add-task").addEventListener("click", () => openAddTaskModal(name));
-
   // Pobierz mapę uid→user raz
+  let allUsers = [];
   const usersMap = new Map();
   try {
-    const users = await getAllUsers();
-    users.forEach(u => usersMap.set(u.uid, u));
+    allUsers = await getAllUsers();
+    allUsers.forEach(u => usersMap.set(u.uid, u));
   } catch (_) {}
+
+  setupAddTaskModal(user.uid, { allUsers, showOwnerPicker: false });
+  setupMembersModal();
+  document.getElementById("btn-add-task").addEventListener("click", () => openAddTaskModal(name));
 
   let myEntries = [];
   let tasks     = [];
@@ -37,6 +47,7 @@ async function init() {
   subscribeProjectTasks(name, (allTasks) => {
     tasks = allTasks;
     render(tasks, myEntries);
+    allTasks.forEach(t => updateMembersModal({ task: t, currentUser: user, currentUserRole: role }));
   });
 
   function render(allTasks, userEntries) {
@@ -110,6 +121,7 @@ async function init() {
         <div class="task-card-actions">
           ${statusBadge(task.status)}
           <span class="task-hours">${hoursStr}</span>
+          <button class="btn-manage-members" title="Zarządzaj dostępem" type="button">${PEOPLE_SVG}</button>
           <button class="btn-delete-task" title="Usuń zadanie" type="button">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -121,6 +133,12 @@ async function init() {
       ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
     `;
 
+    a.querySelector(".btn-manage-members").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openMembersModal({ task, currentUser: user, currentUserRole: role });
+    });
+
     a.querySelector(".btn-delete-task").addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -128,6 +146,15 @@ async function init() {
       try { await deleteTask(task.id); }
       catch (err) { alert("Błąd usuwania: " + err.message); }
     });
+
+    if (task.status === "reviewing") {
+      a.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (!confirm(`Wejście do zadania cofnie status „Do sprawdzenia" z powrotem na „Nie Zrobione". Kontynuować?`)) return;
+        await updateTaskStatus(task.id, "todo");
+        window.location.href = taskUrl;
+      });
+    }
 
     return a;
   }
@@ -163,6 +190,16 @@ async function init() {
         <span class="task-owner-name">${ownerName}</span>
       </div>
     `;
+
+    if (task.status === "reviewing") {
+      a.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (!confirm(`Wejście do zadania cofnie status „Do sprawdzenia" z powrotem na „Nie Zrobione". Kontynuować?`)) return;
+        await updateTaskStatus(task.id, "todo");
+        window.location.href = taskUrl;
+      });
+    }
+
     return a;
   }
 
