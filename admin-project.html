@@ -21,6 +21,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <button id="btn-add-task" class="btn-add">+ Zleć zadanie</button>
       <div id="intern-picker-wrap"></div>
       <div class="header-user">
         <img id="user-avatar" class="user-avatar" src="" alt="" referrerpolicy="no-referrer" style="display:none">
@@ -36,13 +37,7 @@
     <button class="period-btn" data-period="week">W tym tygodniu</button>
   </div>
 
-  <div id="tasks-review-section" style="display:none">
-    <h2 class="section-title">Zadania</h2>
-    <div id="tasks-review-list" class="tasks-review-list"></div>
-  </div>
-
-  <p id="status" class="status"></p>
-  <div class="charts-grid" id="charts-grid"></div>
+  <div id="tasks-container" class="admin-tasks-container"></div>
 
   <script type="module" src="js/admin-project.js"></script>
 </body>

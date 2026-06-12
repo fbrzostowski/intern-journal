@@ -1,13 +1,15 @@
 import { requireAuth, logout } from "./auth.js";
-import { subscribeAllEntries, subscribeProjectTasks, getAllUsers, updateTaskStatus, chartGridColor } from "./store.js";
+import { subscribeAllEntries, subscribeProjectTasks, getAllUsers, updateTaskStatus, deleteTask } from "./store.js";
 import { buildInternPicker } from "./intern-picker.js";
+import { setupAddTaskModal, openAddTaskModal } from "./add-task-modal.js";
+import { setupMembersModal, openMembersModal, updateMembersModal } from "./task-members-modal.js";
 
-const CATEGORIES = [
-  { key: 'interest',   label: 'Ciekawość',    color: '#534AB7' },
-  { key: 'learning',   label: 'Nauka',        color: '#0F6E56' },
-  { key: 'difficulty', label: 'Trudność',     color: '#993C1D' },
-  { key: 'mood',       label: 'Samopoczucie', color: '#B8860B' },
-];
+const PEOPLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="9" cy="7" r="4"/>
+  <path d="M3 21v-2a4 4 0 0 1 4-4h4"/>
+  <circle cx="19" cy="19" r="2"/>
+  <path d="M19 15v2"/><path d="M19 21v2"/><path d="M15 19h2"/><path d="M21 19h2"/>
+</svg>`;
 
 const STATUS_MAP = {
   todo:      { label: "Nie zrobione",   cls: "status-todo" },
@@ -17,16 +19,18 @@ const STATUS_MAP = {
 
 const params      = new URLSearchParams(window.location.search);
 const projectName = params.get('name');
-let selectedUid   = params.get('uid') || null;
-let allEntries    = [];
-let allTasks      = [];
-let usersMap      = new Map();
-let activePeriod  = 'all';
+let selectedUid      = params.get('uid') || null;
+let allEntries       = [];
+let allTasks         = [];
+let usersMap         = new Map();
+let activePeriod     = 'all';
+let currentAdminUser = null;
 
 async function init() {
   if (!projectName) { window.location.href = 'admin.html'; return; }
 
   const { user } = await requireAuth('admin');
+  currentAdminUser = user;
 
   document.getElementById('user-name').textContent = user.displayName ?? user.email;
   const avatar = document.getElementById('user-avatar');
@@ -40,7 +44,13 @@ async function init() {
   buildInternPicker(
     document.getElementById('intern-picker-wrap'),
     users, selectedUid,
-    (uid) => { selectedUid = uid; updateBackLink(); renderView(); }
+    (uid) => { selectedUid = uid; updateBackLink(); renderAll(); }
+  );
+
+  setupAddTaskModal(user.uid, { allUsers: users });
+  setupMembersModal();
+  document.getElementById('btn-add-task').addEventListener('click', () =>
+    openAddTaskModal(projectName)
   );
 
   updateBackLink();
@@ -49,19 +59,20 @@ async function init() {
     btn.addEventListener('click', () => {
       activePeriod = btn.dataset.period;
       updatePeriodBtns();
-      renderView();
+      renderAll();
     });
   });
   updatePeriodBtns();
 
   subscribeAllEntries((entries) => {
     allEntries = entries;
-    renderView();
+    renderAll();
   });
 
   subscribeProjectTasks(projectName, (tasks) => {
     allTasks = tasks;
-    renderTasks();
+    renderAll();
+    tasks.forEach(t => updateMembersModal({ task: t, currentUser: user, currentUserRole: 'admin' }));
   });
 }
 
@@ -79,135 +90,114 @@ function periodStart() {
     d.setHours(0, 0, 0, 0);
     return d;
   }
-  if (activePeriod === 'month') {
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }
+  if (activePeriod === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
   return null;
 }
 
-
 function updateBackLink() {
-  const back = document.getElementById('btn-back');
-  back.href = selectedUid ? `admin.html?uid=${selectedUid}` : 'admin.html';
+  document.getElementById('btn-back').href = selectedUid ? `admin.html?uid=${selectedUid}` : 'admin.html';
 }
 
-function renderView() {
-  const start = periodStart();
-  const entries = allEntries
-    .filter(e => e.project === projectName)
-    .filter(e => !selectedUid || e.uid === selectedUid)
-    .filter(e => !start || e.timestamp >= start);
+function renderAll() {
+  if (!allTasks.length) return;
 
   document.getElementById('project-title').textContent = projectName;
 
-  if (!entries.length) {
-    document.getElementById('status').textContent = 'Brak wpisów dla tego projektu.';
-    document.getElementById('total-hours').textContent = '';
-    document.getElementById('charts-grid').innerHTML = '';
+  const start = periodStart();
+
+  // Godziny per zadanie (filtrowane po okresie i ewentualnym stażyście)
+  const hoursByTask = {};
+  allEntries
+    .filter(e => (e.projectName || e.project) === projectName)
+    .filter(e => !selectedUid || e.uid === selectedUid)
+    .filter(e => !start || e.timestamp >= start)
+    .forEach(e => {
+      if (!e.taskId) return;
+      hoursByTask[e.taskId] = (hoursByTask[e.taskId] || 0) + e.hours;
+    });
+
+  // Filtruj zadania po stażyście (właściciel)
+  const tasks = selectedUid ? allTasks.filter(t => t.uid === selectedUid) : allTasks;
+
+  const totalHours = tasks.reduce((s, t) => s + (hoursByTask[t.id] || 0), 0);
+  document.getElementById('total-hours').textContent = totalHours
+    ? `${Math.round(totalHours * 10) / 10}h łącznie · ${tasks.length} zadań`
+    : `${tasks.length} zadań`;
+
+  const container = document.getElementById('tasks-container');
+  container.innerHTML = '';
+
+  if (!tasks.length) {
+    container.innerHTML = '<p class="status">Brak zadań dla wybranego stażysty.</p>';
     return;
   }
 
-  document.getElementById('status').textContent = '';
-  const total = entries.reduce((s, e) => s + e.hours, 0);
-  document.getElementById('total-hours').textContent =
-    `${Math.round(total * 10) / 10}h łącznie · ${entries.length} wpisów`;
-
-  const grid = document.getElementById('charts-grid');
-  grid.innerHTML = '';
-
-  entries.forEach((entry, i) => {
-    const dateObj = new Date(entry.date + 'T12:00:00');
-    const dateStr = dateObj.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    const author = usersMap.get(entry.uid);
-    const authorHtml = author ? `
-      <a href="admin-intern.html?uid=${entry.uid}" class="entry-author">
-        ${author.photoURL ? `<img src="${author.photoURL}" class="entry-author-avatar" alt="">` : ''}
-        <span class="entry-author-name">${author.name ?? author.email}</span>
-      </a>` : '';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'chart-wrap entry-card';
-    wrap.innerHTML = `
-      <div class="entry-info">
-        <div class="entry-header">
-          <span class="entry-title">${entry.title}</span>
-          <span class="entry-hours">${entry.hours}h</span>
-        </div>
-        ${authorHtml}
-        <a href="admin-day.html?date=${entry.date}${selectedUid ? `&uid=${selectedUid}` : ''}" class="entry-date-link">${dateStr}</a>
-        ${entry.description ? `<p class="entry-desc">${entry.description}</p>` : ''}
-      </div>
-      <div class="entry-canvas-wrap">
-        <canvas id="chart-entry-${i}"></canvas>
-      </div>
-    `;
-    grid.appendChild(wrap);
-
-    new Chart(document.getElementById(`chart-entry-${i}`).getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels:   CATEGORIES.map(c => c.label),
-        datasets: [{
-          data:            CATEGORIES.map(c => entry.ratings[c.key]),
-          backgroundColor: CATEGORIES.map(c => c.color + 'bb'),
-          borderColor:     CATEGORIES.map(c => c.color),
-          borderWidth: 1.5,
-          borderRadius: 6,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: { min: 0, max: 10, ticks: { stepSize: 1 }, grid: { color: chartGridColor() } },
-          x: { ticks: { color: '#333', font: { size: 12, weight: '500' } }, grid: { display: false } },
-        },
-        plugins: { legend: { display: false } },
-      },
-    });
+  tasks.forEach(task => {
+    container.appendChild(buildTaskCard(task, hoursByTask[task.id] || 0));
   });
 }
 
-function renderTasks() {
-  const section = document.getElementById("tasks-review-section");
-  const list    = document.getElementById("tasks-review-list");
-  if (!allTasks.length) { section.style.display = "none"; return; }
-  section.style.display = "";
-  list.innerHTML = "";
+function buildTaskCard(task, hours) {
+  const owner     = usersMap.get(task.uid);
+  const ownerName = owner ? (owner.displayName || owner.name || owner.email || 'Stażysta') : 'Stażysta';
+  const s         = STATUS_MAP[task.status] ?? STATUS_MAP.todo;
+  const hoursStr  = hours ? `${Math.round(hours * 10) / 10}h` : '0h';
+  const taskUrl   = `task.html?id=${task.id}&title=${encodeURIComponent(task.title)}&project=${encodeURIComponent(projectName)}`;
 
-  allTasks.forEach(task => {
-    const owner  = usersMap.get(task.uid);
-    const name   = owner ? (owner.displayName || owner.name || owner.email || "Stażysta") : "Stażysta";
-    const s      = STATUS_MAP[task.status] ?? STATUS_MAP.todo;
-    const canApprove = task.status === "reviewing";
+  const ownerAvatar = owner?.photoURL
+    ? `<img src="${owner.photoURL}" class="task-owner-avatar" referrerpolicy="no-referrer" alt="">`
+    : `<span class="task-owner-initials">${ownerName[0].toUpperCase()}</span>`;
 
-    const card = document.createElement("div");
-    card.className = "task-review-card";
-    card.innerHTML = `
-      <div class="task-review-header">
-        <span class="task-name">${task.title}</span>
-        <div class="task-card-actions">
-          <span class="task-status-badge ${s.cls}">${s.label}</span>
-          ${canApprove ? `<button class="btn-approve-task btn-add" data-id="${task.id}">Zatwierdź ✓</button>` : ""}
-        </div>
+  const a = document.createElement('a');
+  a.href      = taskUrl;
+  a.className = 'task-card task-card--admin';
+  a.innerHTML = `
+    <div class="task-card-header">
+      <span class="task-name">${task.title}</span>
+      <div class="task-card-actions">
+        <span class="task-status-badge ${s.cls}">${s.label}</span>
+        <span class="task-hours">${hoursStr}</span>
+        ${task.status === 'reviewing' ? `<button class="btn-approve-task btn-add" type="button">Zatwierdź ✓</button>` : ''}
+        <button class="btn-manage-members" title="Zarządzaj dostępem" type="button">${PEOPLE_SVG}</button>
+        <button class="btn-delete-task" title="Usuń zadanie" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
       </div>
-      ${task.description ? `<p class="task-desc">${task.description}</p>` : ""}
-      <div class="task-owner">
-        ${owner?.photoURL ? `<img src="${owner.photoURL}" class="task-owner-avatar" referrerpolicy="no-referrer" alt="">` : `<span class="task-owner-initials">${name[0].toUpperCase()}</span>`}
-        <span class="task-owner-name">${name}</span>
-      </div>
-    `;
+    </div>
+    ${task.description ? `<p class="task-desc">${task.description}</p>` : ''}
+    <div class="task-owner">
+      ${ownerAvatar}
+      <span class="task-owner-name">${ownerName}</span>
+    </div>
+  `;
 
-    if (canApprove) {
-      card.querySelector(".btn-approve-task").addEventListener("click", async (e) => {
-        e.target.disabled = true;
-        await updateTaskStatus(task.id, "done");
-      });
-    }
-
-    list.appendChild(card);
+  a.querySelector('.btn-manage-members').addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openMembersModal({ task, currentUser: currentAdminUser, currentUserRole: 'admin' });
   });
+
+  if (task.status === 'reviewing') {
+    a.querySelector('.btn-approve-task').addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.target.disabled = true;
+      await updateTaskStatus(task.id, 'done');
+    });
+  }
+
+  a.querySelector('.btn-delete-task').addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Usunąć zadanie „${task.title}" wraz ze wszystkimi wpisami?`)) return;
+    try { await deleteTask(task.id); }
+    catch (err) { alert('Błąd usuwania: ' + err.message); }
+  });
+
+  return a;
 }
 
 init();
