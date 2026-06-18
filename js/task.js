@@ -460,6 +460,11 @@ function renderSummary(entries, usersMap = new Map()) {
     .map(([uid, es]) => ({ uid, entries: es, totalHours: es.reduce((s, e) => s + e.hours, 0) }))
     .sort((a, b) => b.totalHours - a.totalHours);
 
+  const containerW = grid.parentElement?.offsetWidth || (window.innerWidth - 48);
+  const cols = Math.max(1, Math.floor((containerW + 16) / 296));
+  const rows = Math.ceil(authors.length / cols);
+  const canvasH = Math.max(160, Math.floor((window.innerHeight - 230) / rows) - 90);
+
   authors.forEach((a, i) => {
     const authorData = usersMap.get(a.uid);
     const authorName = authorData
@@ -484,7 +489,7 @@ function renderSummary(entries, usersMap = new Map()) {
           </div>
         </div>
       </div>
-      <div class="summary-canvas-wrap">
+      <div class="summary-canvas-wrap" style="height:${canvasH}px">
         <canvas id="chart-summary-${i}"></canvas>
       </div>
     `;
